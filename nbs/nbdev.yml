@@ -1,0 +1,14 @@
+project:
+  output-dir: _docs
+
+website:
+  title: "llmdojo"
+  site-url: "https://AnswerDotAI.github.io/llmdojo"
+  description: "Scored tooling katas, habit rules, and pre-baked warm-start sessions for LLM coding agents"
+  repo-branch: main
+  repo-url: "https://github.com/AnswerDotAI/llmdojo"
+
+format-links:
+  - html
+  - format: commonmark
+    text: Markdown

@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llmdojo"
+dynamic = ["version"]
+description = "Scored tooling katas, habit rules, and pre-baked warm-start sessions for LLM coding agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "Jeremy Howard", email = "info@fast.ai"}]
+keywords = ['nbdev']
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/AnswerDotAI/llmdojo"
+Documentation = "https://AnswerDotAI.github.io/llmdojo/"
+
+[project.entry-points.nbdev]
+llmdojo = "llmdojo._modidx:d"
+
+[tool.setuptools.dynamic]
+version = {attr = "llmdojo.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["llmdojo"]
+
+[tool.nbdev]
