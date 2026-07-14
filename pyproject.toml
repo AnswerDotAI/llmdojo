@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
 ]
-dependencies = []
+dependencies = ['clikernel>=0.1.7', 'llmsurgery>=0.0.1']
 
 [project.urls]
 Repository = "https://github.com/AnswerDotAI/llmdojo"
@@ -24,10 +24,16 @@ Documentation = "https://AnswerDotAI.github.io/llmdojo/"
 [project.entry-points.nbdev]
 llmdojo = "llmdojo._modidx:d"
 
+[project.scripts]
+claudedojo = "llmdojo.claudedojo:main"
+
 [tool.setuptools.dynamic]
 version = {attr = "llmdojo.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["llmdojo"]
+
+[tool.setuptools.package-data]
+llmdojo = ["dojo_data/proj/*"]
 
 [tool.nbdev]

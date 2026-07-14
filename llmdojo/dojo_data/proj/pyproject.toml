@@ -1,0 +1,7 @@
+[project]
+name = "weather"
+version = "0.0.1"
+description = "Tiny demo project for the llmdojo katas"
+
+[tool.nbdev]
+nbs_path = '.'
