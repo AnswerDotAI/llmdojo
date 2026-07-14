@@ -34,6 +34,6 @@ version = {attr = "llmdojo.__version__"}
 include = ["llmdojo"]
 
 [tool.setuptools.package-data]
-llmdojo = ["dojo_data/proj/*"]
+llmdojo = ["dojo_data/*", "dojo_data/proj/*"]
 
 [tool.nbdev]
