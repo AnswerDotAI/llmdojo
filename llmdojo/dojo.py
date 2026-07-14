@@ -1,5 +1,5 @@
 "Practice katas for tooling best practices, scored on the route taken, not just the outcome. Start with `dojo_start()`."
-import ast,json,re,shutil,sys,time,uuid
+import ast,json,os,re,shutil,sys,time,uuid
 from importlib.resources import files
 from pathlib import Path
 from llmdojo.rules import _state_root, live_session, scan, _callee, _calls
@@ -12,7 +12,7 @@ _WEEK = 7*86400
 
 def _version():
     from llmdojo import __version__
-    return f"{__version__}:2"
+    return f"{__version__}:3"
 
 def _complete_file():
     "Completion record path: a sibling of the swept run root, so the sweep never touches it"
@@ -77,7 +77,7 @@ def _chk_tmpl(d):
     return out
 
 def _chk_nb(d):
-    raw = (d/'01_api.ipynb').read_text()
+    raw = (d/'nbs'/'01_api.ipynb').read_text()
     return [] if '3 attempts' in raw and 'retries the request twice before giving up' not in raw else \
         ['the Retries markdown does not say "3 attempts"']
 
@@ -89,18 +89,18 @@ def _chk_report(d):
 
 
 KATAS = [
-    dict(name='orient', par=2, files=['01_api.ipynb'], check=_chk_orient, ro=True,
+    dict(name='orient', par=1, files=['nbs/01_api.ipynb'], check=_chk_orient, ro=True,
         route="find_cells('httpx'): its context= defaults to 1, and the why lives in the md cell next to the import, past where one-line summaries truncate. view_nb reads whole small notebooks fine too. nbrg's one-liners locate; they don't read",
         prompt="Why does this project use httpx? Answer in prose via dojo_score(orient=\"...\"), including the specific justification the notebook gives. Tip: find_cells' context= defaults to 1 for a reason - the why usually lives next to the what."),
     dict(name='edit set', par=2, files=['core.py'], check=_chk_core,
-        route='lnhashview_file, then ONE exhash_file with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly',
+        route='lnhashview_file, then ONE exhash_file with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly. s patterns are regexes: escape literal [ ] ( ) . or the call fails',
         prompt="In core.py: change the default units to 'metric', delete the FIXME comment line, and rename the cfg variable to config everywhere (load_cfg keeps its name; docstring unchanged)."),
     dict(name='hostile replace', par=2, files=['tmpl.py'], check=_chk_tmpl,
         route='lnhashview_file, then one %%exhash with a range-c address; payload verbatim, no quoting. (% c would replace the whole file: too much here)',
         prompt='In tmpl.py: replace the whole render() function with exactly this, verbatim:\n\n' + _TMPL_IND),
-    dict(name='notebook edit', par=2, files=['01_api.ipynb'], check=_chk_nb,
+    dict(name='notebook edit', par=2, files=['nbs/01_api.ipynb'], check=_chk_nb,
         route='doc(find_cells) free, find_cells(header_section=...), then one %%exhash <path> <cell_id> % c replaces the whole cell: no line addresses needed',
-        prompt='In 01_api.ipynb: the markdown under the Retries header is wrong; it should say the request is retried twice more, making "3 attempts" in all.'),
+        prompt='In nbs/01_api.ipynb: the markdown under the Retries header is wrong; it should say the request is retried twice more, making "3 attempts" in all.'),
     dict(name='doc first', par=1, files=['report.py'], check=_chk_report, ro=True,
         route='import + doc(report.daily_report) are free, and the full docstring names the style that ships; one cell makes the call. A guessed call runs fine and scores nothing',
         prompt='report.py defines daily_report (the kata dir is importable during the round). Produce the report for report.SAMPLE in the form needed for production, and pass its first line via dojo_score(report="..."). Tip: doc() is free, and an overview line ending in "..." means the full docstring holds more.')]
@@ -111,7 +111,8 @@ def _card():
     ks = '\n'.join(f"{i}. (par {k['par']}) {k['prompt']}" for i,k in enumerate(KATAS, 1))
     return f"""== llmdojo ==
 Work only in: {d}
-Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells.
+%cd there first: chdir is never penalized, because the relative paths it enables make every later cell shorter - path tokens you never repeat are tokens saved, in the dojo and in real work.
+Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells and chdir cells (%cd / os.chdir).
 Penalties: +1 per skill module or workspace function used before doc()ing it.
 Par assumes the tooling's best route, shown with each kata at scoring: matching par means you found it.
 Why the round matters: this transcript stays in your context, and later tool calls copy the patterns they find there, since demonstrations steer an LLM more strongly than instructions do. A round of correct tooling use improves everything after it.
@@ -166,7 +167,7 @@ def dojo_start(id=None):
         try: _RUN['ip'].events.unregister('pre_run_cell', _RUN['log'])
         except ValueError: pass
     _RUN.clear()
-    _RUN.update(dir=d, trace=d/'trace.jsonl', ip=get_ipython(), log=_log)
+    _RUN.update(dir=d, trace=d/'trace.jsonl', ip=get_ipython(), log=_log, cwd0=Path.cwd())
     _RUN['ip'].events.register('pre_run_cell', _RUN['log'])
     sys.path[:] = [p for p in sys.path if not p.startswith(str(root))]   # stale entries from abandoned rounds
     sys.path.insert(0, str(d))                                            # kata files importable during the round
@@ -174,12 +175,19 @@ def dojo_start(id=None):
     print(_card())
 
 
+def _cd_call(c):
+    "A chdir call, in either the `chdir(...)` or `os.chdir(...)` form"
+    return _callee(c) == 'chdir' or (isinstance(c.func, ast.Attribute) and c.func.attr == 'chdir')
+
+
 def _is_free(src):
-    "A cell costs no strokes if it only reads docs or imports (or is dojo machinery)"
+    "A cell costs no strokes if it only reads docs, imports, or chdirs (or is dojo machinery)"
+    src = '\n'.join(l for l in src.splitlines() if not re.fullmatch(r'\s*%cd(\s.*)?', l))
     free = {'doc','list_pyskills','help','doced','forget_doced'} | set(__all__)
     def _ok(n):
         if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call):
             c = n.value
+            if _cd_call(c): return True
             if _callee(c) == 'print': return all(_callee(a) in free for a in c.args if isinstance(a, ast.Call))
             return _callee(c) in free
         if isinstance(n, ast.For) and not any(_calls(n.iter)): return all(_ok(b) for b in n.body)
@@ -270,12 +278,14 @@ def dojo_score(bash_calls=0, orient='', report=''):
         if (p := str(d)) in sys.path: sys.path.remove(p)
         sys.modules.pop('report', None)
         _RUN['ip'].events.unregister('pre_run_cell', _RUN['log'])
+        restored = Path.cwd().is_relative_to(d)
+        if restored: os.chdir(_RUN['cwd0'])
         _rm_run(d)
         ip = _RUN['ip']
         _RUN.clear()
         cid = register_completion(uuid.uuid4().hex[:4])
         ip.reset(new_session=False)   # the uniform post-dojo state: every session, template or live, starts real work from a fresh namespace
-        print(f"Clean round. Run dir removed. Completion id: {cid} - keep this id, including through compaction: passing dojo_start({cid!r}) in a future session skips the round.")
+        print(f"Clean round. Run dir removed{' and cwd restored' if restored else ''}. Completion id: {cid} - keep this id, including through compaction: passing dojo_start({cid!r}) in a future session skips the round.")
         print("Kernel namespace cleared, as after a restart: redo the imports you need (the bootstrap cells) before other work. Doc-state is intact: tooling you've already doc()'d stays declared.")
     else:
         _RUN['paused'] = True

@@ -93,15 +93,24 @@ def _rawstr(tree, src, sess):
 def _hashcalc(tree, src, sess): return any(_callee(c) in ('lnhash','line_hash') for c in _calls(tree))
 
 
+def _cmds(c):
+    "Top-level command-tuple nodes of an exhash/exhash_file/exhash_cell call"
+    if _callee(c) == 'exhash':
+        a = c.args[1] if len(c.args) > 1 else None
+        return a.elts if isinstance(a, (ast.List, ast.Tuple)) and any(isinstance(e, ast.Tuple) for e in a.elts) else []
+    return c.args[2 if _callee(c) == 'exhash_cell' else 1:]
+
 def _tuple_payload(tree, src, sess):
-    "Constant a/i/c payloads that are long or contain quotes/backslashes belong in a %%exhash cell"
+    "A lone constant a/i/c payload that is long or contains quotes/backslashes belongs in a %%exhash cell; multi-command calls are exempt, since the one-command magic can't express them atomically"
     for c in _calls(tree):
         if _callee(c) not in ('exhash','exhash_file','exhash_cell'): continue
-        for n in ast.walk(c):
-            if isinstance(n, ast.Tuple) and len(n.elts) >= 3 \
-               and isinstance(n.elts[1], ast.Constant) and n.elts[1].value in ('a','i','c') \
-               and isinstance(n.elts[2], ast.Constant) and isinstance(n.elts[2].value, str) \
-               and (len(n.elts[2].value) > 20 or any(ch in n.elts[2].value for ch in '\'"\\')): return True
+        cmds = _cmds(c)
+        if len(cmds) != 1 or not isinstance(cmds[0], ast.Tuple): continue
+        n = cmds[0]
+        if len(n.elts) >= 3 \
+           and isinstance(n.elts[1], ast.Constant) and n.elts[1].value in ('a','i','c') \
+           and isinstance(n.elts[2], ast.Constant) and isinstance(n.elts[2].value, str) \
+           and (len(n.elts[2].value) > 20 or any(ch in n.elts[2].value for ch in '\'"\\')): return True
 
 
 def _s_repls(tree):

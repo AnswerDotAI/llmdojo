@@ -56,6 +56,10 @@ def test_rules():
     assert not fires("exhash_file(p, (a, 'c', 'metric'))", "tuple_payload")        # short one-worder: fine
     assert not fires("exhash_file(p, (a, 's', 'longer than twenty chars ok'))", "tuple_payload")  # s is not a payload command
     assert not fires("exhash_file(p, (a, 'c', body))", "tuple_payload")            # variables unknowable: stay quiet
+    assert not fires("exhash_file(p, (a, 'd'), (b, 'c', 'a longer replacement line here'))", "tuple_payload")  # multi-command batch: the one-command magic can't express it atomically
+    assert not fires("exhash_cell(p, cid, (a, 's', 'x', 'y'), (b, 'i', 'it\'s a long insertion here'))", "tuple_payload")
+    assert fires("exhash_cell(p, cid, (a, 'c', 'a longer replacement line here'))", "tuple_payload")  # single command: the magic is strictly better
+    assert fires("exhash(t, [(a, 'c', 'a longer replacement line here')])", "tuple_payload")           # one command in a list works the same
 
     # literal \n in an s-replacement -> real newline; oversized s-replacement -> c command
     assert fires(r"exhash_file(p, ('1|aa|', 's', 'x', r'a\nb'))", "s_newline")     # 2-char \n stays literal: a mistake

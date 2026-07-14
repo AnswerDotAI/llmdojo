@@ -1,4 +1,5 @@
 import re, pytest
+from pathlib import Path
 from clikernel.cli import _stream_text
 import llmdojo.dojo as dj
 
@@ -18,23 +19,25 @@ def test_dojo(tmp_path, monkeypatch):
     run("doced('pretool')")                                 # pre-round declaration: persists before any inspector exists
     run("from llmdojo.dojo import *")
     card = run("dojo_start()")
-    assert "== llmdojo ==" in card and "(par 2)" in card and "(par 1)" in card and "par 3" not in card and "best route" in card and "print()" in card
+    assert "== llmdojo ==" in card and "(par 2)" in card and "(par 1)" in card and "par 3" not in card and "best route" in card and "%cd" in card and "print()" in card
     assert "not wrapped in print" in card.lower()           # free-cell rule says bare doc() calls only
     assert "early version" in card.lower()                  # card asks for imperfection reports
     assert "clean score" in card and "ascending order" in card  # completion gate + redo order spelled out
     hostile = dj._TMPL_PAYLOAD                               # kata 3 payload defeats every Python literal form
     assert "'"*3 in hostile and '"'*3 in hostile and '\\' in hostile and '\n' in hostile
     d = dj._RUN['dir']
-    assert (d/'core.py').exists() and (d/'01_api.ipynb').exists() and (d/'report.py').exists()
+    assert (d/'core.py').exists() and (d/'nbs'/'01_api.ipynb').exists() and (d/'report.py').exists()
 
     run("x = 1 + 1")                                      # 1 stroke
     run("help(len)")                                      # free
     run("import collections, json")                       # free: imports cost nothing
     run("# a narration comment")                          # free: comments cost nothing
     run("for f in (len, max): help(f)")                   # free: reading docs in a loop
+    run("%cd .")                                          # free: chdir cells cost nothing
+    run("import os; os.chdir('.')")                       # free: the os.chdir form too
     run("print(x)")                                       # free cell shape, but each print() costs 1
     out = run("dojo_score(bash_calls=1)")                 # free itself; +2 for the Bash call
-    assert "strokes 4" in out and "par 9" in out                        # cell + print + 2*bash
+    assert "strokes 4" in out and "par 8" in out                        # cell + print + 2*bash
     assert "1| x = 1 + 1" in out and "0| # a narration comment" in out  # per-cell stroke ledger
     assert "kata 'edit set'" in out and "par route" in out  # unedited files: fails, with the route shown
     assert "kata 'orient': no answer passed" in out and dj.KATAS[0]['route'] in out  # ungraded orient fails, route shown
@@ -80,7 +83,7 @@ def test_dojo(tmp_path, monkeypatch):
     tok = f"RB{2*3517}"                                     # computed like the kata does: never literal in any source
     out = run(f"dojo_score(bash_calls=1, orient={ans!r})")
     assert "strokes 12" in out                                          # 10 cell strokes + 2*bash
-    assert "kata 'orient' (strokes 0, par 2): ok" in out                # graded answer, no strokes tagged 1
+    assert "kata 'orient' (strokes 0, par 1): ok" in out                # graded answer, no strokes tagged 1
     assert "kata 'edit set' (strokes 2, par 2)" in out
     assert "kata 'hostile replace' (strokes 3, par 2, +1 over)" in out  # per-kata over-par surfaced
     assert "dojo_redo(3)" in out                                        # ...with the retry hint
@@ -103,7 +106,7 @@ def test_dojo(tmp_path, monkeypatch):
     assert "kata 4" not in out                              # no shared-file warning, no reapply tax on kata 4
     out = run(f"dojo_score(bash_calls=1, orient={ans!r})")
     assert "strokes 4" in out                               # nothing was tagged kata 1: reset changes nothing
-    assert "kata 'orient' (strokes 0, par 2): ok" in out
+    assert "kata 'orient' (strokes 0, par 1): ok" in out
     assert "kata 'notebook edit' (strokes 0, par 2)" in out
 
     (d/'core.py').write_text("broken")
@@ -116,6 +119,7 @@ def test_dojo(tmp_path, monkeypatch):
     assert not ok_dir.exists()
     with pytest.raises(ValueError): dj._rm_run(tmp_path/'elsewhere')   # tampered path: refused
 
+    orig = Path.cwd()
     run("dojo_start()")                                     # fresh round; this test edits its files directly
     run("# kata 3")                                        # exact tag; the overspend below is compensated by an under-par rest of round
     run("s1 = 1")
@@ -126,15 +130,17 @@ def test_dojo(tmp_path, monkeypatch):
         .replace('cfg = dict', 'config = dict').replace('cfg[k', 'config[k').replace('return cfg', 'return config').replace('    # FIXME: drop this\n', '')
     (d2/'core.py').write_text(core)
     (d2/'tmpl.py').write_text('"Plain-text rendering for weather summaries."\n\n\n' + dj._TMPL_PAYLOAD)
-    raw = (d2/'01_api.ipynb').read_text().replace('retries the request twice before giving up.',
+    raw = (d2/'nbs'/'01_api.ipynb').read_text().replace('retries the request twice before giving up.',
         'retries the request twice more before giving up, making 3 attempts in all.')
-    (d2/'01_api.ipynb').write_text(raw)
+    (d2/'nbs'/'01_api.ipynb').write_text(raw)
+    run(f"%cd {d2}")                                        # free: chdir cells cost nothing
     out = run(f"dojo_score(orient={ans!r}, report={tok!r})")   # under-par round total: clean, despite the kata-3 overspend
-    assert "Clean round" in out and "Completion id:" in out and "compaction" in out
+    assert "Clean round" in out and "cwd restored" in out and "Completion id:" in out and "compaction" in out
     assert "kata 'hostile replace' (strokes 3, par 2, +1 over)" in out  # over-par kata, under-par round
     assert "over-par katas" not in out and "dojo_redo(" not in out       # clean round: no contradictory redo demand
     cid = re.search(r"Completion id: ([0-9a-f]{4})", out)[1]
     assert "Kernel namespace cleared" in out and "Doc-state is intact" in out
+    assert "and cwd restored" in out and Path.cwd() == orig   # kernel not left in the deleted run dir
     assert run("print('s1' in globals())").strip() == 'False'         # clean round resets the namespace, as after a restart
     assert run("print('dojo_score' in globals())").strip() == 'False' # including the dojo's own names
     run("from llmdojo.dojo import *")                               # re-import the dojo API for the receipt check
@@ -215,7 +221,7 @@ def test_orient_answer_buried():
     "The design invariants of the orient kata: the why-cell is markdown, refers to httpx only pronominally, and its token sits past the 120-char one-line-summary boundary."
     import json
     from importlib.resources import files
-    nb = json.loads((files('llmdojo')/'dojo_data'/'proj'/'01_api.ipynb').read_text())
+    nb = json.loads((files('llmdojo')/'dojo_data'/'proj'/'nbs'/'01_api.ipynb').read_text())
     cell = next(c for c in nb['cells'] if 'rb-3254' in ''.join(c['source']))
     src = ''.join(cell['source'])
     assert cell['cell_type'] == 'markdown' and 'httpx' not in src and 'rb-3254' not in src[:120]
@@ -238,3 +244,12 @@ def test_report_kata(tmp_path):
     dj._RUN['report'] = 'RB-2 format report'
     assert dj._chk_report(None) != []
     dj._RUN.clear()
+
+
+def test_free_chdir():
+    "chdir cells are free in either form: relative paths save tokens in every later cell."
+    assert dj._is_free('%cd /tmp/x')
+    assert dj._is_free('%cd')
+    assert dj._is_free('import os\nos.chdir("/tmp")')
+    assert dj._is_free('from os import chdir\nchdir("/tmp")')
+    assert not dj._is_free('%cd /tmp\ny = 1')
