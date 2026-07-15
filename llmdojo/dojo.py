@@ -90,8 +90,8 @@ def _chk_report(d):
 
 KATAS = [
     dict(name='orient', par=1, files=['nbs/01_api.ipynb'], check=_chk_orient, ro=True,
-        route="find_cells('httpx'): its context= defaults to 1, and the why lives in the md cell next to the import, past where one-line summaries truncate. view_nb reads whole small notebooks fine too. nbrg's one-liners locate; they don't read",
-        prompt="Why does this project use httpx? Answer in prose via dojo_score(orient=\"...\"), including the specific justification the notebook gives. Tip: find_cells' context= defaults to 1 for a reason - the why usually lives next to the what."),
+        route="find_msgs('httpx'): its context= defaults to 1, and the why lives in the note next to the import, past where one-line summaries truncate. view_dlg reads whole small notebooks fine too. nbrg's one-liners locate; they don't read",
+        prompt="Why does this project use httpx? Answer in prose via dojo_score(orient=\"...\"), including the specific justification the notebook gives. Tip: find_msgs' context= defaults to 1 for a reason - the why usually lives next to the what."),
     dict(name='edit set', par=2, files=['core.py'], check=_chk_core,
         route='lnhashview_file, then ONE exhash_file with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly. s patterns are regexes: escape literal [ ] ( ) . or the call fails',
         prompt="In core.py: change the default units to 'metric', delete the FIXME comment line, and rename the cfg variable to config everywhere (load_cfg keeps its name; docstring unchanged)."),
@@ -99,7 +99,7 @@ KATAS = [
         route='lnhashview_file, then one %%exhash with a range-c address; payload verbatim, no quoting. (% c would replace the whole file: too much here)',
         prompt='In tmpl.py: replace the whole render() function with exactly this, verbatim:\n\n' + _TMPL_IND),
     dict(name='notebook edit', par=2, files=['nbs/01_api.ipynb'], check=_chk_nb,
-        route='doc(find_cells) free, find_cells(header_section=...), then one %%exhash <path> <cell_id> % c replaces the whole cell: no line addresses needed',
+        route='doc(find_msgs) free, find_msgs(header_section=...), then one %%exhash <path> <cell_id> % c replaces the whole cell: no line addresses needed',
         prompt='In nbs/01_api.ipynb: the markdown under the Retries header is wrong; it should say the request is retried twice more, making "3 attempts" in all.'),
     dict(name='doc first', par=1, files=['report.py'], check=_chk_report, ro=True,
         route='import + doc(report.daily_report) are free, and the full docstring names the style that ships; one cell makes the call. A guessed call runs fine and scores nothing',

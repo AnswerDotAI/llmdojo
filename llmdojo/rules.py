@@ -13,7 +13,7 @@ def _state_root():
     return xdg_state_home()/'llmdojo'
 
 _TOOLING = {'lnhashview','lnhashview_file','lnhashview_cell','lnhashview_cells','rg','nbrg','fd',
-    'find_cells','summary_nb','view_nb','view_cell','view_cells','file_view','doc','info_md'}
+    'find_msgs','summary_dlg','view_dlg','view_msg','view_msgs','file_view','doc','info_md'}
 
 
 class Session:
