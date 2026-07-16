@@ -32,12 +32,13 @@ The dojo is the enforcement mechanism for the session bootstrap. Telling an agen
 
 ## How Claude Code behaves, and how we know
 
-The design leans on facts about Claude Code that aren't documented anywhere authoritative, so we established them by experiment. Dated observations, all from live sessions (most recently 2026-07-14):
+The design leans on facts about Claude Code that aren't documented anywhere authoritative, so we established them by experiment. Dated observations, all from live sessions (most recently 2026-07-16):
 
 - A conversation keeps one transcript file for its whole life. We watched a session's `.jsonl` keep the same stem and keep advancing across a compaction and an app close/resume, while `CLAUDE_CODE_SESSION_ID` changed on each spawn. That stem is therefore the right persistence key, and `_resolve_host`'s newest-transcript heuristic finds it because the active conversation is nearly always the most recently written (`llmsurgery.ant.cur_sess` now uses the same heuristic).
 - The MCP server (and so the kernel) dies with the app and restarts on resume, but survives compaction: the same kernel pid keeps answering across a compact, with its namespace intact.
 - On resume the model's context is replayed in full, `doc()` output included. On compaction the context is rewritten to a summary: skill texts survive as stale snapshots of whenever they were first read, and `doc()` output is gone.
 - Assistant text emitted between tool calls is dropped by the interface (anthropics/claude-code#75900), so agent narration must travel inside tool calls. Kata-tag and comment-only cells are free in dojo scoring for this reason.
+- An API error mid-run (e.g. a safety-layer flag on a message) ends the SDK's `query()` stream with an error result, but the spawned CLI session retries and plays on to completion. Observed 2026-07-16: three capture attempts declared failed ("0 records") each finished the full round as zombies, scoring clean and registering real completion receipts at ~2.5-minute intervals after the runner exited. Hence capture attempts now run with `LLMDOJO_STATE_DIR` in the scratch project, so no attempt - zombie or not - can write machine-global state; only `save_template`/`prep_dojo` touch the real registry, for the accepted template's cid.
 
 What each event changes:
 

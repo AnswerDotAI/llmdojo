@@ -6,22 +6,30 @@
 # current repos) or notebooks under nbs/, so an nbdev repo gets both.
 DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
 
-# Block 3 fires only after compaction (stdin JSON has "source":"compact"): the
-# kernel survives with its namespace intact, but doc() output left the context,
-# so truncate this conversation's doc-state record directly (clikernel re-reads
-# the file each cell) and tell Claude to re-read the live skills.
 input=$(cat)
-if printf '%s' "$input" | grep -q '"source" *: *"compact"'; then
-python -c 'from llmdojo.rules import forget_doced; forget_doced()' 2>/dev/null || true
+source=$(printf '%s' "$input" | python -c 'import json,sys; print(json.load(sys.stdin).get("source", ""))')
+session_id=$(printf '%s' "$input" | python -c 'import json,sys; print(json.load(sys.stdin).get("session_id", ""))')
+synthetic=0
+if [ "$source" = resume ]; then
+synthetic=$(printf '%s' "$input" | python -c 'import json,sys; from pathlib import Path; o=json.load(sys.stdin); p=Path(o.get("transcript_path", "")); b=s=-1
+for i,l in enumerate(p.open() if p.is_file() else []):
+ try: r=json.loads(l)
+ except json.JSONDecodeError: continue
+ if r.get("type")=="system" and r.get("subtype")=="compact_boundary": b=i
+ if r.get("type")=="attachment" and r.get("attachment", {}).get("hookEvent")=="SessionStart": s=i
+print(int(b>s))')
+fi
+if [ "$source" = compact ]; then
+CLAUDE_PROJECT_DIR= CLAUDE_CODE_SESSION_ID="$session_id" python -c 'from llmdojo.rules import forget_doced; forget_doced()' 2>/dev/null || true
 cat <<'EOF'
 **Post-compaction: your context was rewritten — all doc() output is gone and skill texts are stale snapshots — but the kernel process survived untouched: namespace, imports, and current-notebook defaults are all still live, so do not re-run startup or re-import.** The doc-state record has been reset mechanically: no forget_doced() needed, doc notes will simply re-fire, so read doc(f) afresh before each tooling function's next use. Re-invoke `coding-patterns` and `persistent-python` now (plus `nbdev-editing` in an nbdev repo) — the live SKILL.md files always win over replayed snapshots. Keep any dojo completion id from your context.
 EOF
-fi
-
-# Block 4 fires only on resume in a Python project: the kernel restarted with a
-# clean namespace, but the conversation context and the on-disk doc-state record
-# (keyed by conversation id, which resumes keep) both survived: nothing to reset.
-if printf '%s' "$input" | grep -q '"source" *: *"resume"' && [ -f "$DIR/pyproject.toml" ]; then
+elif [ "$source" = resume ] && [ "$synthetic" = 1 ]; then
+CLAUDE_PROJECT_DIR= CLAUDE_CODE_SESSION_ID="$session_id" python -c 'from llmdojo.rules import forget_doced; forget_doced()' 2>/dev/null || true
+cat <<'EOF'
+**Post-compaction resume: the conversation context was rewritten and the kernel restarted with a clean namespace.** Tool documentation and skill text shown in the reconstructed history may be truncated or stale. The doc-state record has been reset mechanically, so call `doc()` again before each tooling function's next use; do not run `forget_doced()` manually. Re-invoke `coding-patterns` and `persistent-python` now (plus `nbdev-editing` in an nbdev repo), and rebuild variables, current-notebook defaults, and monkeypatches on demand. Keep any dojo completion id from your context.
+EOF
+elif [ "$source" = resume ] && [ -f "$DIR/pyproject.toml" ]; then
 cat <<'EOF'
 **Post-resume: your context is exactly as it was when the app closed — everything you can still see (doc() output, dojo completion id) remains valid — but the kernel restarted with a clean namespace (startup.py re-ran, so its imports are back).** The doc-state record survived on disk, keyed to this conversation: run neither forget_doced() nor doced(); doc notes fire only for functions whose docs you don't hold. Rebuild other session state on demand (variables, set_nb, monkeypatches), and pass a dojo completion id from your context to dojo_start(id) before file work.
 EOF
@@ -29,7 +37,7 @@ fi
 
 if [ -f "$DIR/pyproject.toml" ]; then
 cat <<'EOF'
-**NEVER touch local files or run code before completing the bootstrap. "Touch" means any file read, edit, search, or listing (Read/Edit/Grep/Glob, Bash, `fd`/`rg`), any clikernel `execute`, and any subagent that would do these on your behalf — however small it looks: one quick read counts, one search counts, "just checking one thing" counts. Bootstrap = invoke the `coding-patterns` and `persistent-python` skills, then run `from clikernel.dojo import *; dojo_start()` and complete every task it prints (if a completion id from a clean round is in your context, `dojo_start(id)` replays it instantly). Work that never reaches for the filesystem — pure discussion, web research, browser automation — never hits the trigger and needs no bootstrap. Why: this project runs on a persistent Python workbench with curated pyskills, and unbootstrapped sessions reliably regress to ad-hoc Bash and one-off scripts that cost more to review than the dojo costs to run.** After bootstrapping, map each task to a pyskill from the `list_pyskills()` catalog before reaching for Bash, and read the project `README.md` and `DEV.md` before starting work.
+**NEVER touch local files or run code before completing the bootstrap. "Touch" means any file read, edit, search, or listing (Read/Edit/Grep/Glob, Bash, `fd`/`rg`), any clikernel `execute`, and any subagent that would do these on your behalf — however small it looks: one quick read counts, one search counts, "just checking one thing" counts. Bootstrap = invoke the `coding-patterns` and `persistent-python` skills, then run `from llmdojo.dojo import *; dojo_start()` and complete every task it prints (if a completion id from a clean round is in your context, `dojo_start(id)` replays it instantly). Work that never reaches for the filesystem — pure discussion, web research, browser automation — never hits the trigger and needs no bootstrap. Why: this project runs on a persistent Python workbench with curated pyskills, and unbootstrapped sessions reliably regress to ad-hoc Bash and one-off scripts that cost more to review than the dojo costs to run.** After bootstrapping, map each task to a pyskill from the `list_pyskills()` catalog before reaching for Bash, and read the project `README.md` and `DEV.md` before starting work.
 EOF
 fi
 
