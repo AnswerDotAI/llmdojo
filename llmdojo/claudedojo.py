@@ -73,11 +73,49 @@ def is_clean(
     return probs
 
 # %% ../nbs/00_claudedojo.ipynb #f4e0e6c4
-CAPTURE_SYSP = """You're recording a demo session: the transcript will be replayed at the start of future sessions as a worked example of good tooling use. So make it a good one - play the round just as the tooling instructions in your context describe, and keep the narration about the work itself; these notes aren't part of the demo, so don't bring them up. One concern per cell: run the printed bootstrap imports, read the module docs with one batched doc() call, list_pyskills(), then import the round's extra pyskill - rgapi.skill, with both `import mod` and `from mod import *` so every tooling function is a bare name - and then, as the very next cell, exactly doc(rgapi.skill): the module overviews are the catalog later work retrieves from context, so that cell is not optional. Function docs are just-in-time: immediately before each kata's first use, ONE batched free doc() naming exactly what that kata is about to call - doc(find_msgs) before kata 1, doc(lnhashview_file, exhash_file) before kata 2, doc(exhash_cell) before kata 4 - and nothing speculative: never doc a function the kata won't call. Then dojo_start(), and %cd into the run dir the card names before anything else (chdir cells are free, and the relative paths they enable keep every later cell short); tag each kata with its comment-only tag cell and take the par route the kata card describes. Mind the qualified-name trap: a kata that says a module defines a function means you call it as module.func after import - a bare name is a NameError and a wasted stroke. Kata specifics that cost strokes when missed: kata 1 is par 1, one find_msgs call and done (its import/doc neighbors are free), with the httpx why in the markdown neighbor of the import cell - the answer must name both the policy and what httpx replaced; an edit set is ONE exhash_file call, each command tuple its own positional argument, ordered bottom-to-top (highest line number first) so earlier edits don't shift later addresses, and with s patterns written as regexes: escape [ ] ( ) . in literal text or the call fails and the retry costs a stroke; verbatim replacements go through the %%exhash cell magic, never quoted Python payloads - a range address with c inside a file, and for a whole notebook cell straight from the cell id find_msgs shows to %%exhash <path> <cell_id> % c - the address is the one character %, meaning the whole cell: no lnhashview_cell first, no line address ever; and the report style that ships is named only in daily_report's full docstring - end that cell with the bare call, no .splitlines() or slicing (read the first line from the output with your eyes and type it into dojo_score(report=...)). Score once with dojo_score(); play well enough that the first score is clean. After the clean score, reply exactly "OK I'm ready." and stop."""
+CAPTURE_SYSP = r"""You're helping us test our systems: play the practice round by running exactly the numbered cells below, in order, one per kernel call, and nothing else - no other tools, no extra cells, no warm-ups, no saving notes anywhere. Before each cell, you may write one short line in your own words on what the last output showed - narrate the work itself, and never mention these numbered steps, cell numbers, or that you were given them. If any step errors, stop and report it instead of improvising.
+1. doc(clik, pysk, edsk)
+2. doc(dsk, exh, rgsk)
+3. list_pyskills()
+4. dojo_start()
+5. %cd <the run dir the card prints>
+6. # kata 1
+7. doc(find_msgs, view_dlg)
+8. view_dlg('nbs/01_api.ipynb')
+9. # kata 2
+10. doc(lnhashview_file, file_exhash)
+11. lnhashview_file('core.py')
+12. This cell exactly:
+file_exhash('core.py',
+    (r"13|6816|", "s", r"\bcfg\b", "config"),
+    (r"12|8bd5|", "s", r"\bcfg\b", "config"),
+    (r"9|d643|", "s", r"\bcfg\b", "config"),
+    (r"8|7521|", "d"),
+    (r"3|97bb|", "s", "imperial", "metric"),
+)
+13. # kata 3
+14. lnhashview_file('tmpl.py')
+15. A cell whose first line is `%%exhash tmpl.py 4|dad2|,13|913e| c` and whose remaining lines are the replacement function from kata 3's card, byte for byte.
+16. # kata 4
+17. doc(cell_exhash)
+18. find_msgs(header_section='Retries', dlg='nbs/01_api.ipynb')
+19. This cell exactly:
+%%exhash nbs/01_api.ipynb d4f97726 % c
+On a connection error, `fetch_daily` retries the request twice more, making 3 attempts in all before giving up.
+20. # kata 5
+21. import report
+22. doc(report.daily_report)
+23. report.daily_report(report.SAMPLE, style='rb2')
+24. This cell exactly:
+dojo_score(bash_calls=0,
+    orient="The notebook avoids requests because it has no async support and its connection pooling needs hand-managed Session objects, and policy rb-3254 forbids requests in prod code; httpx keeps the requests-style API while fixing both.",
+    report="RB7034")
+When the score is clean, say "OK I'm ready." and stop."""
 
 async def capture_dojo(
     d=None, # Template store dir; `TMPL_DIR` if None
-    model='fable', # Model for the capture run; the only one smart enough for clean rounds - if fable's safeguards flag the steering text, soften the wording rather than switching models
+    model='fable', # Model for the capture run; the only one smart enough for clean rounds
+    effort='medium', # Adaptive thinking effort for the capture run ('low'/'medium'/'high')
     attempts=3, # Gated attempts before giving up
     budget=10.0, # Max USD per attempt
 ):
@@ -88,9 +126,10 @@ async def capture_dojo(
         (proj/'pyproject.toml').write_text('[project]\nname = "dojo-capture"\nversion = "0"\n')
         sid = str(uuid.uuid4())
         opts = ClaudeAgentOptions(cwd=proj, session_id=sid, model=model, max_budget_usd=budget,
-            permission_mode='bypassPermissions', setting_sources=['user','project','local'],
-            thinking={'type':'disabled'},
-            env={'LLMDOJO_STATE_DIR': str(proj/'state')},   # attempts write no machine-global state: a flagged attempt's session can outlive the SDK error and still score
+            permission_mode='bypassPermissions', setting_sources=[],   # bare child: no user CLAUDE.md/settings; hookless transcripts need less curation
+            mcp_servers=dict(clikernel=dict(type='stdio', command=shutil.which('clikernel-mcp'))), strict_mcp_config=True,
+            thinking={'type':'adaptive'}, effort=effort,   # the gate cares about round quality, and curation strips thinking anyway
+            env={'LLMDOJO_STATE_DIR': str(proj/'state'), 'MAX_MCP_OUTPUT_TOKENS': '50000'},   # keep big doc() results inline, as interactive sessions see them;   # attempts write no machine-global state: a flagged attempt's session can outlive the SDK error and still score
             system_prompt={'type':'preset','preset':'claude_code','append':CAPTURE_SYSP})
         cost,err = 0,None
         try:
@@ -241,10 +280,10 @@ def append_dojo(
     return sid
 
 # %% ../nbs/00_claudedojo.ipynb #29c39ffd
-USAGE = """usage: claudedojo [--build <dialog.ipynb> | --capture | --sid | -r [sessid] | <claude args...>]
+USAGE = """usage: claudedojo [--build <dialog.ipynb> | --capture [model [effort]] | --sid | -r [sessid] | <claude args...>]
 Start claude in the current project with a completed dojo round already in its session history.
   --build <dialog.ipynb>  convert a template dialog and store it, instead of launching
-  --capture               play a scripted round headlessly (Agent SDK), gate it with is_clean, and store it
+  --capture [model [effort]]  play a scripted round headlessly (Agent SDK), gate it with is_clean, and store it (default: fable, medium)
   --sid                   prepare and print the session id, instead of launching; composes with shell aliases: claude -r $(claudedojo --sid)
   -r [sess]               append the round to an existing session, by id or name (the project's newest if omitted), and print its id; after a compaction: claude -r $(claudedojo -r)
   <claude args...>        anything else is passed through to claude"""
@@ -253,11 +292,11 @@ def main():
     "CLI entry point; run `claudedojo -h` for usage"
     args = sys.argv[1:]
     if args[:1] in (['-h'], ['--help']) or (args[:1]==['--build'] and len(args)!=2) \
-        or (args[:1]==['--capture'] and len(args)!=1) or (args[:1]==['-r'] and len(args)>2): return print(USAGE)
+        or (args[:1]==['--capture'] and len(args)>3) or (args[:1]==['-r'] and len(args)>2): return print(USAGE)
     if args[:1] == ['--build']: return build_template(args[1], cwd=Path.cwd())
     if args[:1] == ['-r']: return print(append_dojo(args[1] if len(args)==2 else None))
-    if args == ['--capture']:
-        asyncio.run(capture_dojo())   # discard the records: the console script sys.exit()s main's return value
+    if args[:1] == ['--capture']:
+        asyncio.run(capture_dojo(model=args[1] if len(args)>1 else 'fable', effort=args[2] if len(args)>2 else 'medium'))   # discard the records: the console script sys.exit()s main's return value
         return
     if args == ['--sid']: return print(prep_dojo())
     os.execvp('claude', ['claude', '-r', prep_dojo(), *args])

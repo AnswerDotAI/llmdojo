@@ -94,16 +94,16 @@ def _hashcalc(tree, src, sess): return any(_callee(c) in ('lnhash','line_hash') 
 
 
 def _cmds(c):
-    "Top-level command-tuple nodes of an exhash/exhash_file/exhash_cell call"
+    "Top-level command-tuple nodes of an exhash/file_exhash/cell_exhash call"
     if _callee(c) == 'exhash':
         a = c.args[1] if len(c.args) > 1 else None
         return a.elts if isinstance(a, (ast.List, ast.Tuple)) and any(isinstance(e, ast.Tuple) for e in a.elts) else []
-    return c.args[2 if _callee(c) == 'exhash_cell' else 1:]
+    return c.args[2 if _callee(c) == 'cell_exhash' else 1:]
 
 def _tuple_payload(tree, src, sess):
     "A lone constant a/i/c payload that is long or contains quotes/backslashes belongs in a %%exhash cell; multi-command calls are exempt, since the one-command magic can't express them atomically"
     for c in _calls(tree):
-        if _callee(c) not in ('exhash','exhash_file','exhash_cell'): continue
+        if _callee(c) not in ('exhash','file_exhash','cell_exhash'): continue
         cmds = _cmds(c)
         if len(cmds) != 1 or not isinstance(cmds[0], ast.Tuple): continue
         n = cmds[0]
@@ -116,7 +116,7 @@ def _tuple_payload(tree, src, sess):
 def _s_repls(tree):
     "String-constant replacement fields of s-commands in exhash calls"
     for c in _calls(tree):
-        if _callee(c) not in ('exhash','exhash_file','exhash_cell'): continue
+        if _callee(c) not in ('exhash','file_exhash','cell_exhash'): continue
         for n in ast.walk(c):
             if isinstance(n, ast.Tuple) and len(n.elts) >= 4 \
                and isinstance(n.elts[1], ast.Constant) and n.elts[1].value == 's' \

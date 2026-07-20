@@ -50,23 +50,23 @@ def test_rules():
     assert not fires("%nbrun abc", "run_magic")                  # a real magic is the blessed route
 
     # tuple a/i/c payloads -> %%exhash magic (short quote-free payloads tolerated)
-    assert fires("exhash_file(p, (a, 'c', 'a longer replacement line here'))", "tuple_payload")
-    assert fires('exhash_file(p, (a, "a", "it\'s"))', "tuple_payload")             # quote in payload
-    assert fires("exhash_cell(p, cid, (a, 'i', 'x = \\\\n'))", "tuple_payload")    # backslash in payload
-    assert not fires("exhash_file(p, (a, 'c', 'metric'))", "tuple_payload")        # short one-worder: fine
-    assert not fires("exhash_file(p, (a, 's', 'longer than twenty chars ok'))", "tuple_payload")  # s is not a payload command
-    assert not fires("exhash_file(p, (a, 'c', body))", "tuple_payload")            # variables unknowable: stay quiet
-    assert not fires("exhash_file(p, (a, 'd'), (b, 'c', 'a longer replacement line here'))", "tuple_payload")  # multi-command batch: the one-command magic can't express it atomically
-    assert not fires("exhash_cell(p, cid, (a, 's', 'x', 'y'), (b, 'i', 'it\'s a long insertion here'))", "tuple_payload")
-    assert fires("exhash_cell(p, cid, (a, 'c', 'a longer replacement line here'))", "tuple_payload")  # single command: the magic is strictly better
+    assert fires("file_exhash(p, (a, 'c', 'a longer replacement line here'))", "tuple_payload")
+    assert fires('file_exhash(p, (a, "a", "it\'s"))', "tuple_payload")             # quote in payload
+    assert fires("cell_exhash(p, cid, (a, 'i', 'x = \\\\n'))", "tuple_payload")    # backslash in payload
+    assert not fires("file_exhash(p, (a, 'c', 'metric'))", "tuple_payload")        # short one-worder: fine
+    assert not fires("file_exhash(p, (a, 's', 'longer than twenty chars ok'))", "tuple_payload")  # s is not a payload command
+    assert not fires("file_exhash(p, (a, 'c', body))", "tuple_payload")            # variables unknowable: stay quiet
+    assert not fires("file_exhash(p, (a, 'd'), (b, 'c', 'a longer replacement line here'))", "tuple_payload")  # multi-command batch: the one-command magic can't express it atomically
+    assert not fires("cell_exhash(p, cid, (a, 's', 'x', 'y'), (b, 'i', 'it\'s a long insertion here'))", "tuple_payload")
+    assert fires("cell_exhash(p, cid, (a, 'c', 'a longer replacement line here'))", "tuple_payload")  # single command: the magic is strictly better
     assert fires("exhash(t, [(a, 'c', 'a longer replacement line here')])", "tuple_payload")           # one command in a list works the same
 
     # literal \n in an s-replacement -> real newline; oversized s-replacement -> c command
-    assert fires(r"exhash_file(p, ('1|aa|', 's', 'x', r'a\nb'))", "s_newline")     # 2-char \n stays literal: a mistake
-    assert not fires(r"exhash_file(p, ('1|aa|', 's', 'x', 'a\nb'))", "s_newline")  # real newline: intended multiline
-    assert not fires(r"exhash_file(p, ('1|aa|', 's', r'x\n', 'y'))", "s_newline")  # pattern field: regex \n is meaningful
-    assert fires(f"exhash_file(p, ('1|aa|', 's', 'x', {'y'*121!r}))", "s_long")
-    assert not fires(f"exhash_file(p, ('1|aa|', 's', 'x', {'y'*120!r}))", "s_long")
+    assert fires(r"file_exhash(p, ('1|aa|', 's', 'x', r'a\nb'))", "s_newline")     # 2-char \n stays literal: a mistake
+    assert not fires(r"file_exhash(p, ('1|aa|', 's', 'x', 'a\nb'))", "s_newline")  # real newline: intended multiline
+    assert not fires(r"file_exhash(p, ('1|aa|', 's', r'x\n', 'y'))", "s_newline")  # pattern field: regex \n is meaningful
+    assert fires(f"file_exhash(p, ('1|aa|', 's', 'x', {'y'*121!r}))", "s_long")
+    assert not fires(f"file_exhash(p, ('1|aa|', 's', 'x', {'y'*120!r}))", "s_long")
 
     # blockers
     assert fires("import subprocess", "shell_escape")

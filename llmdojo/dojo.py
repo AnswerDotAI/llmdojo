@@ -93,7 +93,7 @@ KATAS = [
         route="find_msgs('httpx'): its context= defaults to 1, and the why lives in the note next to the import, past where one-line summaries truncate. view_dlg reads whole small notebooks fine too. nbrg's one-liners locate; they don't read",
         prompt="Why does this project use httpx? Answer in prose via dojo_score(orient=\"...\"), including the specific justification the notebook gives. Tip: find_msgs' context= defaults to 1 for a reason - the why usually lives next to the what."),
     dict(name='edit set', par=2, files=['core.py'], check=_chk_core,
-        route='lnhashview_file, then ONE exhash_file with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly. s patterns are regexes: escape literal [ ] ( ) . or the call fails. rg(pattern, lnhashs=True) is an equal entry when you know what to hunt: hits arrive as edit-ready addresses, fusing locate and view',
+        route='lnhashview_file, then ONE file_exhash with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly. s patterns are regexes: escape literal [ ] ( ) . or the call fails. rg(pattern, lnhashs=True) is an equal entry when you know what to hunt: hits arrive as edit-ready addresses, fusing locate and view',
         prompt="In core.py: change the default units to 'metric', delete the FIXME comment line, and rename the cfg variable to config everywhere (load_cfg keeps its name; docstring unchanged)."),
     dict(name='hostile replace', par=2, files=['tmpl.py'], check=_chk_tmpl,
         route='lnhashview_file, then one %%exhash with a range-c address; payload verbatim, no quoting. (% c would replace the whole file: too much here)',
@@ -110,6 +110,10 @@ def _card():
     d = _RUN['dir']
     ks = '\n'.join(f"{i}. (par {k['par']}) {k['prompt']}" for i,k in enumerate(KATAS, 1))
     return f"""== llmdojo ==
+The toolkit in brief:
+One op family, prefix names the target: str_replace edits a str, {{file,cell,msg}}_str_replace a {{file,cell,message}}. A "dialog" is a notebook, plus optional prompts; its cells are "messages". Everything else goes verb-first: view_file, create_file, find_msgs, view_msg. Functions write to disk and return a diff; on a held object the op is a method (m.str_replace, m.view, d.find_msgs), in memory until .save().
+summary_dlg, nbrg, and rg(summary=True) show one line per message/cell/block, with ids. Grab addresses while reading: lnhashs=True on any view or search, then edit with exhash - stale addresses fail.
+Read the diff each edit returns. Read results bare - reprs are tuned for it. doc() everything before first use.
 Work only in: {d}
 %cd there first: chdir is never penalized, because the relative paths it enables make every later cell shorter - path tokens you never repeat are tokens saved, in the dojo and in real work.
 Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells and chdir cells (%cd / os.chdir).
