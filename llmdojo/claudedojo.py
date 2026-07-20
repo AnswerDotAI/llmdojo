@@ -218,7 +218,7 @@ def prep_dojo(
 ):
     "Write the template session for `cwd`, register its completion id, seed its doc-state, and return the session id to resume"
     recs,meta = _load_reg(d)
-    sid = save_sess(recs, stable_uuid('claudedojo:'+str(Path(cwd or '.').resolve())), cwd, ts=True)
+    sid = save_sess(recs, cwd=cwd, ts=True)
     if ds := meta.get('doced'): _seed_doced(sid, ds)
     return sid
 
@@ -226,14 +226,14 @@ def prep_dojo(
 APPEND_PROMPT = "We've compacted - run the dojo round again and tell me when you're ready."
 
 def append_dojo(
-    sid=None, # Session to append to; the project's newest transcript if None
+    sid=None, # Session id or name to append to; the project's newest transcript if None
     cwd=None, # Project directory; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
     "Append the template round to session `sid` (e.g. after a compaction), re-seed doc-state, and return `sid` to resume"
     trecs,meta = _load_reg(d)
-    sid = sid or cur_sess(cwd)
-    tail = load_sess(sid, cwd)
+    sid,path = resolve_session(sid, cwd or '.')
+    tail = load_recs(path)
     trecs = reid_recs(trecs, f'append:{sid}:{len(tail)}')   # fresh salt per append, so repeated splices never collide
     trecs[0]['message']['content'] = APPEND_PROMPT
     append_sess(trecs, sid, cwd, ts=True)
@@ -246,7 +246,7 @@ Start claude in the current project with a completed dojo round already in its s
   --build <dialog.ipynb>  convert a template dialog and store it, instead of launching
   --capture               play a scripted round headlessly (Agent SDK), gate it with is_clean, and store it
   --sid                   prepare and print the session id, instead of launching; composes with shell aliases: claude -r $(claudedojo --sid)
-  -r [sessid]             append the round to an existing session (the project's newest if omitted) and print its id; after a compaction: claude -r $(claudedojo -r)
+  -r [sess]               append the round to an existing session, by id or name (the project's newest if omitted), and print its id; after a compaction: claude -r $(claudedojo -r)
   <claude args...>        anything else is passed through to claude"""
 
 def main():

@@ -72,9 +72,21 @@ def test_rules():
     assert fires("import subprocess", "shell_escape")
     assert fires("os.system('ls')", "shell_escape")
     assert fires("!ls", "shell_escape")                          # `!` escapes are seen via the transformed cell
+    assert fires("import subprocess.x", "shell_escape")          # submodule spellings
+    assert fires("from subprocess.x import y", "shell_escape")
+    assert fires("!!ls", "shell_escape")                         # `!!` compiles to get_ipython().getoutput
     assert fires("%nbrun ab12\nPath('f.py').read_text()", "read_file")  # rules still run on cells containing magics
     assert fires("sys.path.insert(0, 'x')", "sys_path")
     assert fires("sys.path.append('x')", "sys_path")
+
+    # hollow doc: a doc() that can't display reads nothing while appearing to
+    assert fires("doc(f)\nx = 1", "hollow_doc")
+    assert fires("for f in (a,b): doc(f)", "hollow_doc")          # bare in a loop body: never displays
+    assert not fires("doc(f)", "hollow_doc")
+    assert not fires("x = 1\ndoc(f)", "hollow_doc")
+    assert not fires("print(doc(f))\nx = 1", "hollow_doc")        # printed is displayed
+    assert not fires("x = doc(f)", "hollow_doc")                  # assigned: consumption unknown, stay quiet
+    assert not fires("def g():\n    doc(f)", "hollow_doc")        # inside a def: there for a reason
 
 
 def test_session_rules(monkeypatch):
@@ -130,8 +142,15 @@ def test_session_rules(monkeypatch):
     assert not fires("doc(rgapi.skill.rg)", "nodoc", s10)
     assert not fires("rg('x', '.')", "nodoc", s10)
     s11 = Session(ns={"rg": rgapi.skill.rg, "fd": rgapi.skill.fd})
-    assert not fires("for f in (rgapi.skill.rg, fd): doc(f)", "nodoc", s11)
+    assert not fires("for f in (rgapi.skill.rg, fd): print(doc(f))", "nodoc", s11)
     assert not fires("rg('x', '.')\nfd('.')", "nodoc", s11)
+    # a hollow doc() must not tick the doc-state box: no credit from a blocked cell
+    s12 = Session(ns={"rg": rgapi.skill.rg})
+    assert fires("doc(rg)\n1+1", "hollow_doc", s12)
+    assert fires("rg('x', '.')", "nodoc", s12)
+    s13 = Session(ns={"rg": rgapi.skill.rg, "fd": rgapi.skill.fd})
+    assert fires("for f in (rg, fd): doc(f)", "hollow_doc", s13)
+    assert fires("rg('x', '.')", "nodoc", s13)
 
     # re-nag: findings repeat on every offending cell until the habit is fixed
     s4 = Session()
@@ -140,7 +159,10 @@ def test_session_rules(monkeypatch):
     s7 = Session(ns=ns)
     assert fires("rg('x', '.')", "nodoc", s7)
     assert fires("rg('y', '.')", "nodoc", s7)                     # keeps nagging until doc'd
-    assert not fires("doc(rg)\nrg('x', '.')", "nodoc", s7)        # compliance ends the nag
+    assert fires("doc(rg)\nrg('x', '.')", "hollow_doc", s7)       # doc-then-call in one cell: the doc never displays
+    assert fires("rg('x', '.')", "nodoc", s7)                     # ...so it credits nothing
+    assert not fires("doc(rg)", "nodoc", s7)                      # a displayed doc() ends the nag
+    assert not fires("rg('x', '.')", "nodoc", s7)
     s8 = Session(ns=ns)
     assert not fires("doced('rg')\nrg('x', '.')", "nodoc", s8)    # declaring is recorded at scan time, like doc()
     s9 = Session(ns=ns)
@@ -153,7 +175,7 @@ def test_notes_single_way():
     "Notes teach exactly one route and never name exceptions."
     from llmdojo.rules import RULES
     for r in RULES:
-        assert r.note and len(r.note) < 120
+        assert r.note and (r.block or len(r.note) < 120)
         for word in ("unless", "except when", "sometimes", "usually"): assert word not in r.note.lower()
 
 
@@ -180,6 +202,10 @@ def test_doced_state(tmp_path, monkeypatch):
     cr.doced('rg')
     cr._doced_file().write_text('["fd"]')           # an external writer (the compaction hook) owns the file
     assert cr.doced() == ['fd']                     # the file is the source of truth: external writes win
+    monkeypatch.setenv("CODEX_THREAD_ID", "codex-123")
+    monkeypatch.setattr(cr, "_HOST", None)
+    assert cr._doced_file().name == 'codex-123.json'
+    monkeypatch.delenv("CODEX_THREAD_ID")
     monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "sid-123")
     monkeypatch.setattr(cr, "_HOST", None)

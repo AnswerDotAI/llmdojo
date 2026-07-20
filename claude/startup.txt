@@ -1,6 +1,6 @@
-Python project detected. Imports are loaded. Doc-state persists on disk per conversation, and the compaction hook resets it when your context is rewritten, so never run doced() or forget_doced() yourself. If the doc() output for these modules isn't visible in your context, read it now:
-    doc(clik, pysk, fct, dsk, exh)
+Python project detected. Imports are loaded, including rg/fd/ls from rgapi. Doc-state persists on disk per conversation, and the compaction hook resets it when your context is rewritten, so doc notes fire exactly for the functions whose docs you don't hold; there is no manual doc-state management. If the doc() output for these modules isn't visible in your context, read it now:
+    doc(clik, pysk, edsk, dsk, exh, rgsk)
 Then run these as separate cells, in order (each ends with a bare expression: only a cell's last expression displays, and the reprs are tuned for reading):
     list_pyskills()
-    from llmdojo.dojo import *; dojo_start()
+    dojo_start()
 The dojo line is REQUIRED in every session, even ones that only read files or search directories: complete every task it prints before any other work. If a completion id from a clean round is in your context, dojo_start(id) replays it instantly.

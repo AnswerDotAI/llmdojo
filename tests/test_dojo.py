@@ -139,11 +139,10 @@ def test_dojo(tmp_path, monkeypatch):
     assert "kata 'hostile replace' (strokes 3, par 2, +1 over)" in out  # over-par kata, under-par round
     assert "over-par katas" not in out and "dojo_redo(" not in out       # clean round: no contradictory redo demand
     cid = re.search(r"Completion id: ([0-9a-f]{4})", out)[1]
-    assert "Kernel namespace cleared" in out and "Doc-state is intact" in out
-    assert "and cwd restored" in out and Path.cwd() == orig   # kernel not left in the deleted run dir
-    assert run("print('s1' in globals())").strip() == 'False'         # clean round resets the namespace, as after a restart
-    assert run("print('dojo_score' in globals())").strip() == 'False' # including the dojo's own names
-    run("from llmdojo.dojo import *")                               # re-import the dojo API for the receipt check
+    assert "Kernel namespace cleared" not in out
+    assert "and cwd restored" in out and Path.cwd() == orig
+    assert run("print('s1' in globals())").strip() == 'True'          # clean round keeps the live namespace
+    assert run("print('dojo_score' in globals())").strip() == 'True'
     out = run(f"dojo_start({cid!r})")
     assert "already complete" in out and not dj._RUN        # receipt honored: no tasks, no run started
     run("forget_dojo()")                                    # tooling changed: truncate the record

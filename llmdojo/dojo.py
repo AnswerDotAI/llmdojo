@@ -93,13 +93,13 @@ KATAS = [
         route="find_msgs('httpx'): its context= defaults to 1, and the why lives in the note next to the import, past where one-line summaries truncate. view_dlg reads whole small notebooks fine too. nbrg's one-liners locate; they don't read",
         prompt="Why does this project use httpx? Answer in prose via dojo_score(orient=\"...\"), including the specific justification the notebook gives. Tip: find_msgs' context= defaults to 1 for a reason - the why usually lives next to the what."),
     dict(name='edit set', par=2, files=['core.py'], check=_chk_core,
-        route='lnhashview_file, then ONE exhash_file with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly. s patterns are regexes: escape literal [ ] ( ) . or the call fails',
+        route='lnhashview_file, then ONE exhash_file with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly. s patterns are regexes: escape literal [ ] ( ) . or the call fails. rg(pattern, lnhashs=True) is an equal entry when you know what to hunt: hits arrive as edit-ready addresses, fusing locate and view',
         prompt="In core.py: change the default units to 'metric', delete the FIXME comment line, and rename the cfg variable to config everywhere (load_cfg keeps its name; docstring unchanged)."),
     dict(name='hostile replace', par=2, files=['tmpl.py'], check=_chk_tmpl,
         route='lnhashview_file, then one %%exhash with a range-c address; payload verbatim, no quoting. (% c would replace the whole file: too much here)',
         prompt='In tmpl.py: replace the whole render() function with exactly this, verbatim:\n\n' + _TMPL_IND),
     dict(name='notebook edit', par=2, files=['nbs/01_api.ipynb'], check=_chk_nb,
-        route='doc(find_msgs) free, find_msgs(header_section=...), then one %%exhash <path> <cell_id> % c replaces the whole cell: no line addresses needed',
+        route='doc(find_msgs) free, find_msgs(header_section=...), then one edit. The old text is known exactly, so a content-addressed edit needs no view: msg_str_replace(id, old, new, dlg=path) or cell_str_replace(path, cell_id, old, new). %%exhash <path> <cell_id> % c replaces the whole cell instead, for when the payload is hostile or the target positional',
         prompt='In nbs/01_api.ipynb: the markdown under the Retries header is wrong; it should say the request is retried twice more, making "3 attempts" in all.'),
     dict(name='doc first', par=1, files=['report.py'], check=_chk_report, ro=True,
         route='import + doc(report.daily_report) are free, and the full docstring names the style that ships; one cell makes the call. A guessed call runs fine and scores nothing',
@@ -115,7 +115,7 @@ Work only in: {d}
 Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells and chdir cells (%cd / os.chdir).
 Penalties: +1 per skill module or workspace function used before doc()ing it.
 Par assumes the tooling's best route, shown with each kata at scoring: matching par means you found it.
-Why the round matters: this transcript stays in your context, and later tool calls copy the patterns they find there, since demonstrations steer an LLM more strongly than instructions do. A round of correct tooling use improves everything after it.
+Why the round matters: this transcript stays in your context, and later tool calls copy the patterns they find there, since demonstrations steer an LLM more strongly than instructions do. A fallback to the tools you were RLHF'd on in post-training (sed, cat, Path.read_text(), ...) teaches the opposite, and our research finds such fallbacks correlate with thinking less and being less creative across the whole task. A round of correct tooling use improves everything after it.
 Per-kata scoring: before starting a kata, run a cell containing ONLY a comment in this exact format: '# kata 3'. Cells after it count toward that kata until the next tag cell; tag cells are free. Anything fancier is narration, not a tag.
 Par for the round: {sum(k['par'] for k in KATAS)}. When done: dojo_score(bash_calls=<your Bash call count>)
 The round is complete ONLY on a clean score: par or better, every kata ok, no penalties. Until then do no work outside the dojo; redo over-par katas with dojo_redo, in ascending order. Scoring pauses the ledger: dojo_redo (or dojo_resume() without a reset) restarts it.
@@ -281,12 +281,9 @@ def dojo_score(bash_calls=0, orient='', report=''):
         restored = Path.cwd().is_relative_to(d)
         if restored: os.chdir(_RUN['cwd0'])
         _rm_run(d)
-        ip = _RUN['ip']
         _RUN.clear()
         cid = register_completion(uuid.uuid4().hex[:4])
-        ip.reset(new_session=False)   # the uniform post-dojo state: every session, template or live, starts real work from a fresh namespace
         print(f"Clean round. Run dir removed{' and cwd restored' if restored else ''}. Completion id: {cid} - keep this id, including through compaction: passing dojo_start({cid!r}) in a future session skips the round.")
-        print("Kernel namespace cleared, as after a restart: redo the imports you need (the bootstrap cells) before other work. Doc-state is intact: tooling you've already doc()'d stays declared.")
     else:
         _RUN['paused'] = True
         print('Fix the misses, then dojo_redo(<kata number>) to reset that kata and try again (ascending order when several). Ledger paused: dojo_redo or dojo_resume() restarts it; the round completes only on a clean score.')

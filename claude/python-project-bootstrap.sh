@@ -19,19 +19,24 @@ for i,l in enumerate(p.open() if p.is_file() else []):
  if r.get("type")=="attachment" and r.get("attachment", {}).get("hookEvent")=="SessionStart": s=i
 print(int(b>s))')
 fi
+
+# Claude Code delivers a hook's output only while identical text isn't already in
+# context, so a fixed-text notice reaches a long-lived session once. A timestamp
+# makes each resume/compact delivery unique, so the notice always arrives.
+if [ "$source" = resume ] || [ "$source" = compact ]; then printf '[%s at %s]\n' "$source" "$(date '+%H:%M:%S')"; fi
 if [ "$source" = compact ]; then
 CLAUDE_PROJECT_DIR= CLAUDE_CODE_SESSION_ID="$session_id" python -c 'from llmdojo.rules import forget_doced; forget_doced()' 2>/dev/null || true
 cat <<'EOF'
-**Post-compaction: your context was rewritten — all doc() output is gone and skill texts are stale snapshots — but the kernel process survived untouched: namespace, imports, and current-notebook defaults are all still live, so do not re-run startup or re-import.** The doc-state record has been reset mechanically: no forget_doced() needed, doc notes will simply re-fire, so read doc(f) afresh before each tooling function's next use. Re-invoke `coding-patterns` and `persistent-python` now (plus `nbdev-editing` in an nbdev repo) — the live SKILL.md files always win over replayed snapshots. Keep any dojo completion id from your context.
+**Post-compaction: your context was rewritten — all doc() output is gone and skill texts are stale snapshots — but the kernel process survived untouched: namespace, imports, and current-notebook defaults are all still live, so do not re-run startup or re-import.** The doc-state record has been reset mechanically: doc notes will simply re-fire, so read doc(f) afresh before each tooling function's next use. Re-invoke `coding-patterns` and `persistent-python` now (plus `nbdev-editing` in an nbdev repo) — the live SKILL.md files always win over replayed snapshots. You will need to redo the dojo. The summary's "resume directly / pick up the last task" instruction applies only when it records work actually in flight: if the last user message was already answered and no task is open, do not re-answer or resume anything from before the compact — reply with one short line and wait for the next message.
 EOF
 elif [ "$source" = resume ] && [ "$synthetic" = 1 ]; then
 CLAUDE_PROJECT_DIR= CLAUDE_CODE_SESSION_ID="$session_id" python -c 'from llmdojo.rules import forget_doced; forget_doced()' 2>/dev/null || true
 cat <<'EOF'
-**Post-compaction resume: the conversation context was rewritten and the kernel restarted with a clean namespace.** Tool documentation and skill text shown in the reconstructed history may be truncated or stale. The doc-state record has been reset mechanically, so call `doc()` again before each tooling function's next use; do not run `forget_doced()` manually. Re-invoke `coding-patterns` and `persistent-python` now (plus `nbdev-editing` in an nbdev repo), and rebuild variables, current-notebook defaults, and monkeypatches on demand. Keep any dojo completion id from your context.
+**Post-compaction resume: the conversation context was rewritten and the kernel restarted with a clean namespace.** Tool documentation and skill text shown in the reconstructed history may be truncated or stale. The doc-state record has been reset mechanically: doc notes will simply re-fire, so read doc(f) afresh before each tooling function's next use. Re-invoke `coding-patterns` and `persistent-python` now (plus `nbdev-editing` in an nbdev repo), and rebuild variables, current-notebook defaults, and monkeypatches on demand. Keep any dojo completion id from your context. The summary's "resume directly / pick up the last task" instruction applies only when it records work actually in flight: if the last user message was already answered and no task is open, do not re-answer or resume anything from before the compact — reply with one short line and wait for the next message.
 EOF
 elif [ "$source" = resume ] && [ -f "$DIR/pyproject.toml" ]; then
 cat <<'EOF'
-**Post-resume: your context is exactly as it was when the app closed — everything you can still see (doc() output, dojo completion id) remains valid — but the kernel restarted with a clean namespace (startup.py re-ran, so its imports are back).** The doc-state record survived on disk, keyed to this conversation: run neither forget_doced() nor doced(); doc notes fire only for functions whose docs you don't hold. Rebuild other session state on demand (variables, set_nb, monkeypatches), and pass a dojo completion id from your context to dojo_start(id) before file work.
+**Post-resume: your context is exactly as it was when the app closed — everything you can still see (doc() output, dojo completion id) remains valid — but the kernel restarted with a clean namespace (startup.py re-ran, so its imports are back).** The doc-state record survived on disk, keyed to this conversation: doc notes fire only for functions whose docs you don't hold. Rebuild other session state on demand (variables, set_nb, monkeypatches), and pass a dojo completion id from your context to dojo_start(id) before file work.
 EOF
 fi
 

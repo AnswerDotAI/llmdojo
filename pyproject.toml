@@ -26,14 +26,12 @@ llmdojo = "llmdojo._modidx:d"
 
 [project.scripts]
 claudedojo = "llmdojo.claudedojo:main"
+codexdojo = "llmdojo.codexdojo:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "llmdojo.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["llmdojo"]
-
-[tool.setuptools.package-data]
-llmdojo = ["dojo_data/*", "dojo_data/proj/*"]
 
 [tool.nbdev]

@@ -13,7 +13,7 @@ def _state_root():
     return xdg_state_home()/'llmdojo'
 
 _TOOLING = {'lnhashview','lnhashview_file','lnhashview_cell','lnhashview_cells','rg','nbrg','fd',
-    'find_msgs','summary_dlg','view_dlg','view_msg','view_msgs','file_view','doc','info_md'}
+    'find_msgs','summary_dlg','view_dlg','view_msg','view_msgs','view_file','view_cell','doc','info_md'}
 
 
 class Session:
@@ -171,15 +171,33 @@ def _docnames(s):
     return {s, s.rsplit('.', 1)[-1]}
 
 
+def _hollow_docs(tree):
+    "Bare doc() expression statements that can never display: any but the cell's last top-level statement. Function bodies don't run at cell time, so they're skipped"
+    out, last = [], (tree.body[-1] if tree.body else None)
+    def go(stmts):
+        for s in stmts:
+            if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)): continue
+            if isinstance(s, ast.Expr) and isinstance(s.value, ast.Call) and _callee(s.value) == 'doc' and s is not last: out.append(s.value)
+            for attr in ('body','orelse','finalbody'): go(getattr(s, attr, []))
+            for h in getattr(s, 'handlers', []): go(h.body)
+    go(tree.body)
+    return out
+
+
+def _hollow_doc(tree, src, sess): return bool(_hollow_docs(tree))
+
+
+
 def _nodoc(tree, src, sess):
-    for c in _calls(tree):                          # record doc() reads first, so doc-then-call in one cell is quiet
-        if _callee(c) == 'doc': sess.doced.update(x for a in c.args for x in _docnames(ast.unparse(a)))
+    hollow = set(_hollow_docs(tree))               # a doc() that can't display reads nothing: no credit
+    for c in _calls(tree):                          # record displayed doc() reads; doced() is exempt from display (it returns nothing by design)
+        if _callee(c) == 'doc' and c not in hollow: sess.doced.update(x for a in c.args for x in _docnames(ast.unparse(a)))
         if _callee(c) == 'doced': sess.doced.update(x for a in c.args for x in _docnames(a.value if isinstance(a, ast.Constant) else ast.unparse(a)))
     for n in ast.walk(tree):                        # doc(f) looped over literal names docs each element
         if isinstance(n, (ast.For, ast.ListComp, ast.SetComp, ast.GeneratorExp)):
             g = n if isinstance(n, ast.For) else n.generators[0]
             if isinstance(g.target, ast.Name) and isinstance(g.iter, (ast.Tuple, ast.List)) \
-               and any(_callee(c) == 'doc' and any(isinstance(a, ast.Name) and a.id == g.target.id for a in c.args) for c in _calls(n)):
+               and any(_callee(c) == 'doc' and c not in hollow and any(isinstance(a, ast.Name) and a.id == g.target.id for a in c.args) for c in _calls(n)):
                 sess.doced.update(x for e in g.iter.elts for x in _docnames(ast.unparse(e)))
     new = {nm for c in _calls(tree) if (nm := _callee(c)) and not nm.startswith('_') and nm not in _EXEMPT and nm not in sess.doced
         and callable(sess.ns.get(nm)) and _needs_doc(sess.ns[nm])}
@@ -189,9 +207,9 @@ def _nodoc(tree, src, sess):
 
 def _shell_escape(tree, src, sess):
     for n in ast.walk(tree):
-        if isinstance(n, ast.Import) and any(a.name == 'subprocess' for a in n.names): return True
-        if isinstance(n, ast.ImportFrom) and n.module == 'subprocess': return True
-        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in ('system','popen'): return True
+        if isinstance(n, ast.Import) and any(a.name.split('.')[0] == 'subprocess' for a in n.names): return True
+        if isinstance(n, ast.ImportFrom) and (n.module or '').split('.')[0] == 'subprocess': return True
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in ('system','popen','getoutput'): return True
 
 
 def _sys_path(tree, src, sess):
@@ -213,6 +231,7 @@ RULES = [
     Rule('postproc', "Show tooling results bare; narrow with the tool's own parameters.", _postproc),
     Rule('run_magic', 'Invoke magics directly with % syntax.', _run_magic, raw=True),
     Rule('piecemeal', 'Load skill modules whole: from <pkg>.skill import *, after doc(<pkg>.skill).', _piecemeal),
+    Rule('hollow_doc', "A doc() that is neither the cell's last expression nor printed displays nothing: it looks like reading the docs while reading nothing. This is a critical trust issue, not a style point. The user audits work through signals like this one, and a single faked signal makes every other signal suspect; pretending to follow a rule is far worse than openly questioning it. These rules exist because skipping them caused real failures in practice. End the cell with a bare doc(...), batching several names into one call.", _hollow_doc, block=True),
     Rule('nodoc', 'Rule violation: `{0}` docs not read before first use. Run `doc({0})` as your next tool call.', _nodoc, tag='warn'),
     Rule('shell_escape', 'Run shell commands with the Bash tool.', _shell_escape, block=True),
     Rule('sys_path', 'Never modify sys.path; stop and ask the user.', _sys_path, block=True)]
@@ -247,7 +266,8 @@ _LIVE = None
 _HOST = None
 
 def _resolve_host():
-    "The stable host conversation id: the most recent transcript for this project survives worker restarts AND resumes; fall back to the per-spawn session id, then our parent pid"
+    "The stable host conversation id: Codex supplies it directly; Claude's newest project transcript survives worker restarts and resumes"
+    if (cid := os.environ.get('CODEX_THREAD_ID')): return cid
     if (pd := os.environ.get('CLAUDE_PROJECT_DIR')):
         d = Path.home()/'.claude'/'projects'/re.sub(r'[^A-Za-z0-9]', '-', pd)
         try: return max(d.glob('*.jsonl'), key=lambda p: p.stat().st_mtime).stem
