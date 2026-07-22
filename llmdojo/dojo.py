@@ -69,7 +69,7 @@ def _chk_core(d):
     return out
 
 def _chk_tmpl(d):
-    t = (d/'tmpl.py').read_text()
+    t = (d/'templ.py').read_text()
     out = []
     if 'OLD_TMPL' in t: out.append('old render() body still present')
     if _TMPL_PAYLOAD.strip() not in t: out.append('replacement render() does not match the provided text verbatim')
@@ -95,9 +95,9 @@ KATAS = [
     dict(name='edit set', par=2, files=['core.py'], check=_chk_core,
         route='lnhashview_file, then ONE file_exhash with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly. s patterns are regexes: escape literal [ ] ( ) . or the call fails. rg(pattern, lnhashs=True) is an equal entry when you know what to hunt: hits arrive as edit-ready addresses, fusing locate and view',
         prompt="In core.py: change the default units to 'metric', delete the FIXME comment line, and rename the cfg variable to config everywhere (load_cfg keeps its name; docstring unchanged)."),
-    dict(name='hostile replace', par=2, files=['tmpl.py'], check=_chk_tmpl,
+    dict(name='hostile replace', par=2, files=['templ.py'], check=_chk_tmpl,
         route='lnhashview_file, then one %%exhash with a range-c address; payload verbatim, no quoting. (% c would replace the whole file: too much here)',
-        prompt='In tmpl.py: replace the whole render() function with exactly this, verbatim:\n\n' + _TMPL_IND),
+        prompt='In templ.py: replace the whole render() function with exactly this, verbatim:\n\n' + _TMPL_IND),
     dict(name='notebook edit', par=2, files=['nbs/01_api.ipynb'], check=_chk_nb,
         route='doc(find_msgs) free, find_msgs(header_section=...), then one edit. The old text is known exactly, so a content-addressed edit needs no view: msg_str_replace(id, old, new, dlg=path) or cell_str_replace(path, cell_id, old, new). %%exhash <path> <cell_id> % c replaces the whole cell instead, for when the payload is hostile or the target positional',
         prompt='In nbs/01_api.ipynb: the markdown under the Retries header is wrong; it should say the request is retried twice more, making "3 attempts" in all.'),

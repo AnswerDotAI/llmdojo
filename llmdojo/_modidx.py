@@ -56,5 +56,5 @@ d = { 'settings': { 'branch': 'main',
             'llmdojo.dojo': {},
             'llmdojo.dojo_data.proj.core': {},
             'llmdojo.dojo_data.proj.report': {},
-            'llmdojo.dojo_data.proj.tmpl': {},
+            'llmdojo.dojo_data.proj.templ': {},
             'llmdojo.rules': {}}}

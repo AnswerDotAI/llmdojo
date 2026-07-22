@@ -25,16 +25,16 @@ file_exhash('core.py',
 ```
 > Script completed ¶ Wall time 0.1 seconds ¶ Output: ¶ --- core.py ¶ +++ core.py ¶ 2|0000| ¶ -3|97bb|DEFAULTS = dict(units='imperial', lang='en') ¶ +3|5ffb|DEFAULTS = dict(units='metric', lang='en') ¶ 4|0000| ¶ --- ¶ 7|42b6|    "Read a cfg file from `path`, merging entries over `DEFAULTS`" ¶ -8|7521|    # FIXME: drop this ¶ -9|d643|    cfg = dict(DEFAULTS) ¶ +8|fa0d|    config = dict(DEFAULTS) ¶ 9|93cb|    for line in open(path).read().splitlines(): ¶ 10|c33e|        k, v = line.split('=', 1) ¶ -12|8bd5|        cfg[k.strip()] = v.strip() ¶ -13|6816|    return cfg ¶ …2 lines elided…
 ```python
-lnhashview_file('tmpl.py')
+lnhashview_file('templ.py')
 ```
 > Script completed ¶ Wall time 0.1 seconds ¶ Output: ¶ 1|0228|"Plain-text rendering for weather summaries." ¶ 2|0000| ¶ 3|0000| ¶ 4|dad2|def render(name, temp): ¶ 5|b62d|    # OLD_TMPL: verbose builder kept from the prototype ¶ 6|f34e|    parts = [] ¶ 7|b8fb|    parts.append(name) ¶ 8|3974|    parts.append(': ') ¶ 9|45d1|    parts.append(str(temp)) ¶ 10|c741|    parts.append(' degrees') ¶ 11|d698|    out = ''.join(parts) ¶ 12|a03d|    out = out + '.' ¶ 13|913e|    return out
 ```python
-%%exhash tmpl.py 4|dad2|,13|913e| c
+%%exhash templ.py 4|dad2|,13|913e| c
 def render(name, temp):
     r"""Render a one-line summary; keep \t, \n and ''' literal in this docstring."""
     return name + ':\t' + str(temp) + ' degrees\n'
 ```
-> Script completed ¶ Wall time 0.1 seconds ¶ Output: ¶ --- tmpl.py ¶ +++ tmpl.py ¶ 4|dad2|def render(name, temp): ¶ -5|b62d|    # OLD_TMPL: verbose builder kept from the prototype ¶ -6|f34e|    parts = [] ¶ -7|b8fb|    parts.append(name) ¶ -8|3974|    parts.append(': ') ¶ -9|45d1|    parts.append(str(temp)) ¶ -10|c741|    parts.append(' degrees') ¶ -11|d698|    out = ''.join(parts) ¶ -12|a03d|    out = out + '.' ¶ -13|913e|    return out ¶ +5|7f91|    r"""Render a one-line summary; keep \t, \n and ''' literal in this docstring.""" ¶ +6|298f|    return name + ':\t' + str(temp) + ' degrees\n'
+> Script completed ¶ Wall time 0.1 seconds ¶ Output: ¶ --- templ.py ¶ +++ templ.py ¶ 4|dad2|def render(name, temp): ¶ -5|b62d|    # OLD_TMPL: verbose builder kept from the prototype ¶ -6|f34e|    parts = [] ¶ -7|b8fb|    parts.append(name) ¶ -8|3974|    parts.append(': ') ¶ -9|45d1|    parts.append(str(temp)) ¶ -10|c741|    parts.append(' degrees') ¶ -11|d698|    out = ''.join(parts) ¶ -12|a03d|    out = out + '.' ¶ -13|913e|    return out ¶ +5|7f91|    r"""Render a one-line summary; keep \t, \n and ''' literal in this docstring.""" ¶ +6|298f|    return name + ':\t' + str(temp) + ' degrees\n'
 ```python
 doc(cell_exhash)
 ```

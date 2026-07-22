@@ -28,8 +28,8 @@ file_exhash('core.py',
 ```
 
 13. `# kata 3`
-14. `lnhashview_file('tmpl.py')`
-15. A cell whose first line is `%%exhash tmpl.py 4|dad2|,13|913e| c` and whose remaining lines are the replacement function from kata 3's card, byte for byte.
+14. `lnhashview_file('templ.py')`
+15. A cell whose first line is `%%exhash templ.py 4|dad2|,13|913e| c` and whose remaining lines are the replacement function from kata 3's card, byte for byte.
 16. `# kata 4`
 17. `doc(cell_exhash)`
 18. `find_msgs(header_section='Retries', dlg='nbs/01_api.ipynb')`

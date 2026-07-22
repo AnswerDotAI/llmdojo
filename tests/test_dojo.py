@@ -129,7 +129,7 @@ def test_dojo(tmp_path, monkeypatch):
     core = (d2/'core.py').read_text().replace("'imperial'", "'metric'") \
         .replace('cfg = dict', 'config = dict').replace('cfg[k', 'config[k').replace('return cfg', 'return config').replace('    # FIXME: drop this\n', '')
     (d2/'core.py').write_text(core)
-    (d2/'tmpl.py').write_text('"Plain-text rendering for weather summaries."\n\n\n' + dj._TMPL_PAYLOAD)
+    (d2/'templ.py').write_text('"Plain-text rendering for weather summaries."\n\n\n' + dj._TMPL_PAYLOAD)
     raw = (d2/'nbs'/'01_api.ipynb').read_text().replace('retries the request twice before giving up.',
         'retries the request twice more before giving up, making 3 attempts in all.')
     (d2/'nbs'/'01_api.ipynb').write_text(raw)
