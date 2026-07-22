@@ -53,8 +53,7 @@ def _chk_orient(d):
     a = _RUN.get('orient') or ''
     if not a: return ['no answer passed: dojo_score(orient="<your prose answer>")']
     out = []
-    if 'rb-3254' not in a.lower():
-        out.append('answer lacks the specific justification: the prose next to the relevant code names it')
+    if 'rb-3254' not in a.lower(): out.append('answer lacks the specific justification: the prose next to the relevant code names it')
     if 'requests' not in a.lower(): out.append('answer does not say what httpx was chosen over')
     return out
 
@@ -113,7 +112,7 @@ def _card():
 Assumed knowledge: the toolkit conventions taught by the startup doc() calls, doc(clik, pysk, edsk) and doc(dsk, exh, rgsk). Do not continue unless that output is visible in your context; if any is missing, read it now.
 Work only in: {d}
 %cd there first: chdir is never penalized, because the relative paths it enables make every later cell shorter - path tokens you never repeat are tokens saved, in the dojo and in real work.
-Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells and chdir cells (%cd / os.chdir).
+Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. `doc()` returns a `PrettyString`: leave it as the final expression when you want to see it, or assign it when you do not want it rendered, for instance for very large docs you want to search through. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells and chdir cells (%cd / os.chdir).
 Penalties: +1 per skill module or workspace function used before doc()ing it.
 Par assumes the tooling's best route, shown with each kata at scoring: matching par means you found it.
 Why the round matters: this transcript stays in your context, and later tool calls copy the patterns they find there, since demonstrations steer an LLM more strongly than instructions do. A fallback to the tools you were RLHF'd on in post-training (sed, cat, Path.read_text(), ...) teaches the opposite, and our research finds such fallbacks correlate with thinking less and being less creative across the whole task. A round of correct tooling use improves everything after it.
