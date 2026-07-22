@@ -1,0 +1,4 @@
+# The template dialogs defeat diff review: one huge md cell whose rebuilds scatter changes
+# (nbdime's driver hangs on it - quadratic inline diff), and a regenerated round's JSON
+# isn't reviewable as a diff anyway. Hide them by default; `git diff --text` forces a look.
+llmdojo/dojo_data/*template*.ipynb -diff

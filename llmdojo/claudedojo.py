@@ -6,7 +6,7 @@ Docs: https://AnswerDotAI.github.io/llmdojo/claudedojo.html.md"""
 
 # %% auto #0
 __all__ = ['TMPL_PROMPT', 'DROP_ATT', 'GATE_FORBID', 'CAPTURE_SYSP', 'OPENING', 'TMPL_DIR', 'APPEND_PROMPT', 'USAGE',
-           'curate_dojo', 'dojo_cid', 'is_clean', 'capture_dojo', 'pick_turns', 'mk_template', 'save_template',
+           'curate_dojo', 'dojo_cid', 'is_clean', 'capture_dojo', 'pick_span', 'mk_template', 'save_template',
            'load_template', 'build_template', 'prep_dojo', 'append_dojo', 'compact_dojo', 'main']
 
 # %% ../nbs/00_claudedojo.ipynb #8602c977
@@ -121,29 +121,29 @@ async def capture_dojo(
     raise RuntimeError(f'no clean round in {attempts} attempts')
 
 # %% ../nbs/00_claudedojo.ipynb #9069c1a2
-def _exec_tu(r):
-    c = r.get('message', {}).get('content', '')
-    return None if isinstance(c, str) else first(b for b in c if b.get('type')=='tool_use' and b.get('name')=='mcp__clikernel__execute')
+def _has_marker(r, marker):
+    "Does `r` carry a Bash tool_use whose command contains `marker`?"
+    return any(b.get('type')=='tool_use' and b.get('name')=='Bash' and marker in b.get('input', {}).get('command', '') for b in _blocks(r))
 
-def pick_turns(
+def pick_span(
     recs, # Session records, e.g. from `load_sess`
-    *cells, # Kernel cell sources: matched exactly, else as a prefix; the last match wins
+    start='dojo-capture-start', # Marker in the opening Bash sentinel's command
+    end='dojo-capture-end', # Marker in the closing Bash sentinel's command
 ):
-    "The tool_use/tool_result record pairs for the kernel cells in `cells`, in that order"
-    tus = [(r, tu) for r in recs if r.get('type')=='assistant' and (tu:=_exec_tu(r))]
-    out = []
-    for txt in cells:
-        cand = [r for r,tu in tus if tu['input'].get('code','')==txt] or [r for r,tu in tus if tu['input'].get('code','').startswith(txt)]
-        if not cand: raise ValueError(f'no kernel cell matches {txt.splitlines()[0]!r}')
-        tid = _exec_tu(cand[-1])['id']
-        out += [cand[-1], first(r for r in recs if r.get('type')=='user' and rec_role(r)=='tool' and any(b.get('tool_use_id')==tid for b in r['message']['content']))]
-    return L(out)
+    "The records strictly between the last `start` sentinel and the first `end` after it, minus thinking and the sentinels' results"
+    idxs = [k for k,r in enumerate(recs) if _has_marker(r, start)]
+    if not idxs: raise ValueError(f'no Bash sentinel matches {start!r}')
+    i = idxs[-1]
+    j = first(k for k,r in enumerate(recs) if k>i and _has_marker(r, end))
+    if j is None: raise ValueError(f'no Bash sentinel matches {end!r}')
+    tids = {b['id'] for r in (recs[i],recs[j]) for b in _blocks(r) if b.get('type')=='tool_use'}
+    return strip_think(L(r for r in recs[i+1:j] if not any(b.get('tool_use_id') in tids for b in _blocks(r))))
 
 # %% ../nbs/00_claudedojo.ipynb #71ddbc0b
 OPENING = 'Bootstrapping: the startup script has already run its imports, so I read the tooling docs, check the catalog, then take the dojo.'
 
 def mk_template(
-    picked, # Record pairs from `pick_turns`
+    picked, # Round records, e.g. from `pick_span`
     opening=OPENING, # Reply text preceding the first tool call
     closing="OK I'm ready.", # Reply text ending the round
     doced=None, # Names doc()'d during the round, stored in the dialog's metadata for launch-time doc-state seeding
@@ -199,7 +199,7 @@ def _load_reg(d):
     if not (Path(d or TMPL_DIR)/'template.jsonl').exists():
         build_template(files('llmdojo')/'dojo_data'/'dojo_template.ipynb', d)   # first use on this machine: build the store from the packaged dialog
     recs,meta = load_template(d)
-    if meta['v'] != _dojo_v(): print(f"claudedojo: template built under {meta['v']} but installed tooling is {_dojo_v()}; the baked round will not validate. Rebuild with claudedojo --build <dialog>, or refresh unattended with claudedojo --capture.")
+    if meta['v'] != _dojo_v(): print(f"claudedojo: template built under {meta['v']} but installed tooling is {_dojo_v()}; the baked round will not validate. Rebuild with claudedojo --build <dialog>, or refresh unattended with claudedojo --capture.", file=sys.stderr)
     from llmdojo.dojo import register_completion
     register_completion(meta['cid'], meta['v'])
     return recs,meta

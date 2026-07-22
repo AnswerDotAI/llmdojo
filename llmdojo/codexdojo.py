@@ -185,8 +185,14 @@ def capture_dojo(
             if event.get('type')=='thread.started':
                 sid = event['thread_id']
                 print(f'thread: {sid}',flush=True)
-            elif event.get('type')=='item.completed' and event.get('item',{}).get('type')=='agent_message':
-                print(event['item']['text'],flush=True)
+            elif event.get('type')=='item.completed':
+                it = event.get('item',{})
+                typ = it.get('type')
+                if typ=='agent_message': print(it['text'],flush=True)
+                elif typ!='reasoning':
+                    c = parse_exec(it.get('input') or '')
+                    desc = c.arguments.get('code',str(c.arguments)).splitlines()[0] if c else truncstr(json.dumps(it),160)
+                    print(f'[{typ}] {desc}',flush=True)
         if rc:=proc.wait(): raise subprocess.CalledProcessError(rc,cmd)
         if not sid: raise RuntimeError('capture produced no thread id')
         return capture_current(sid,d)

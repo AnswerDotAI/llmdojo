@@ -280,7 +280,10 @@ def dojo_score(bash_calls=0, orient='', report=''):
         sys.modules.pop('report', None)
         _RUN['ip'].events.unregister('pre_run_cell', _RUN['log'])
         restored = Path.cwd().is_relative_to(d)
-        if restored: os.chdir(_RUN['cwd0'])
+        if restored:
+            c0 = _RUN['cwd0']
+            while not c0.exists(): c0 = c0.parent   # the recorded dir can vanish mid-round (e.g. it was itself a stale run dir)
+            os.chdir(c0)
         _rm_run(d)
         _RUN.clear()
         cid = register_completion(uuid.uuid4().hex[:4])
