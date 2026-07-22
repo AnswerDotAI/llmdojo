@@ -110,10 +110,7 @@ def _card():
     d = _RUN['dir']
     ks = '\n'.join(f"{i}. (par {k['par']}) {k['prompt']}" for i,k in enumerate(KATAS, 1))
     return f"""== llmdojo ==
-The toolkit in brief:
-One op family, prefix names the target: str_replace edits a str, {{file,cell,msg}}_str_replace a {{file,cell,message}}. A "dialog" is a notebook, plus optional prompts; its cells are "messages". Everything else goes verb-first: view_file, create_file, find_msgs, view_msg. Functions write to disk and return a diff; on a held object the op is a method (m.str_replace, m.view, d.find_msgs), in memory until .save().
-summary_dlg, nbrg, and rg(summary=True) show one line per message/cell/block, with ids. Grab addresses while reading: lnhashs=True on any view or search, then edit with exhash - stale addresses fail.
-Read the diff each edit returns. Read results bare - reprs are tuned for it. doc() everything before first use.
+Assumed knowledge: the toolkit conventions taught by the startup doc() calls, doc(clik, pysk, edsk) and doc(dsk, exh, rgsk). Do not continue unless that output is visible in your context; if any is missing, read it now.
 Work only in: {d}
 %cd there first: chdir is never penalized, because the relative paths it enables make every later cell shorter - path tokens you never repeat are tokens saved, in the dojo and in real work.
 Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells and chdir cells (%cd / os.chdir).

@@ -20,9 +20,31 @@ $ pip install llmdojo
 
 Activation is two lines of clikernel user config: register the rules in `$XDG_CONFIG_HOME/clikernel/inspectors.py` (`from llmdojo.rules import make_inspector, RuleBlock; inspectors = [make_inspector()]`), and have your startup file print the bootstrap instructions that tell the agent to run the dojo.
 
-## How to use
+### Start a session
 
-In a clikernel session, `dojo_start()` deals a round and `dojo_score(...)` scores it; a clean round registers its completion id. The `claudedojo` CLI launches Claude Code with a stored template round already in history; `codexdojo` does the same for Codex using native Responses API items. Completion ids and templates are stamped with the dojo tooling version, which also gates their validity:
+`dojo_start()` deals a scored practice round inside a clikernel session. Pass the completion id from a clean round to skip replaying it while that receipt remains valid.
+
+Claude Code and Codex can start with a reviewed round already in their history:
+
+``` sh
+$ claudedojo
+$ codexdojo
+```
+
+Arguments after either command pass through to the underlying agent. After compaction, append the worked round to the existing conversation and resume it:
+
+``` sh
+$ claude -r $(claudedojo -r)
+$ codex resume $(codexdojo -r)
+```
+
+Template maintainers can capture fresh rounds with `claudedojo --capture` and `codexdojo --capture`, import an existing Codex round with `codexdojo --capture-current`, and compile a reviewed dialog with `--build <dialog.ipynb>`.
+
+### State and templates
+
+Doc-state records which tool documentation the agent has read for a conversation. Closing and resuming restores that record; compaction clears it because the corresponding documentation has left the model’s context. A warm-start template seeds both doc-state and its clean-round completion receipt before the agent resumes.
+
+Completion receipts and templates carry the dojo tooling version. A version change invalidates old receipts and prevents an outdated template from launching. `dojo_version()` reports the installed version:
 
 ``` python
 from llmdojo.dojo import dojo_version
@@ -32,4 +54,10 @@ from llmdojo.dojo import dojo_version
 dojo_version()
 ```
 
-    2
+    '0.0.1:3'
+
+### Limitations
+
+A tooling rename does not change the dojo version automatically. Rebuild templates whenever names used by the worked round or its documentation change.
+
+Doc-state host detection has two conservative fallbacks. Two simultaneous Claude conversations in the same project can select the wrong transcript record. Codex’s MCP worker is keyed by parent process id, so compaction clears all numeric records; another live Codex session may receive extra documentation reminders. The reminders are harmless.

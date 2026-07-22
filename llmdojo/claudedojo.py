@@ -7,7 +7,7 @@ Docs: https://AnswerDotAI.github.io/llmdojo/claudedojo.html.md"""
 # %% auto #0
 __all__ = ['TMPL_PROMPT', 'DROP_ATT', 'GATE_FORBID', 'CAPTURE_SYSP', 'OPENING', 'TMPL_DIR', 'APPEND_PROMPT', 'USAGE',
            'curate_dojo', 'dojo_cid', 'is_clean', 'capture_dojo', 'pick_turns', 'mk_template', 'save_template',
-           'load_template', 'build_template', 'prep_dojo', 'append_dojo', 'main']
+           'load_template', 'build_template', 'prep_dojo', 'append_dojo', 'compact_dojo', 'main']
 
 # %% ../nbs/00_claudedojo.ipynb #8602c977
 import asyncio, json, os, re, shutil, sys, tempfile, uuid
@@ -15,7 +15,7 @@ from importlib.resources import files
 from fastcore.utils import *
 from llmsurgery.ant import *
 from llmsurgery.ipynb import read_ipynb, write_ipynb
-from .rules import _state_root, doced
+from .rules import _state_root
 
 # %% ../nbs/00_claudedojo.ipynb #0c09a7a3
 def _is_err(b): return b.get('type')=='tool_result' and b.get('is_error')
@@ -73,44 +73,7 @@ def is_clean(
     return probs
 
 # %% ../nbs/00_claudedojo.ipynb #f4e0e6c4
-CAPTURE_SYSP = r"""You're helping us test our systems: play the practice round by running exactly the numbered cells below, in order, one per kernel call, and nothing else - no other tools, no extra cells, no warm-ups, no saving notes anywhere. Before each cell, you may write one short line in your own words on what the last output showed - narrate the work itself, and never mention these numbered steps, cell numbers, or that you were given them. If any step errors, stop and report it instead of improvising.
-1. doc(clik, pysk, edsk)
-2. doc(dsk, exh, rgsk)
-3. list_pyskills()
-4. dojo_start()
-5. %cd <the run dir the card prints>
-6. # kata 1
-7. doc(find_msgs, view_dlg)
-8. view_dlg('nbs/01_api.ipynb')
-9. # kata 2
-10. doc(lnhashview_file, file_exhash)
-11. lnhashview_file('core.py')
-12. This cell exactly:
-file_exhash('core.py',
-    (r"13|6816|", "s", r"\bcfg\b", "config"),
-    (r"12|8bd5|", "s", r"\bcfg\b", "config"),
-    (r"9|d643|", "s", r"\bcfg\b", "config"),
-    (r"8|7521|", "d"),
-    (r"3|97bb|", "s", "imperial", "metric"),
-)
-13. # kata 3
-14. lnhashview_file('tmpl.py')
-15. A cell whose first line is `%%exhash tmpl.py 4|dad2|,13|913e| c` and whose remaining lines are the replacement function from kata 3's card, byte for byte.
-16. # kata 4
-17. doc(cell_exhash)
-18. find_msgs(header_section='Retries', dlg='nbs/01_api.ipynb')
-19. This cell exactly:
-%%exhash nbs/01_api.ipynb d4f97726 % c
-On a connection error, `fetch_daily` retries the request twice more, making 3 attempts in all before giving up.
-20. # kata 5
-21. import report
-22. doc(report.daily_report)
-23. report.daily_report(report.SAMPLE, style='rb2')
-24. This cell exactly:
-dojo_score(bash_calls=0,
-    orient="The notebook avoids requests because it has no async support and its connection pooling needs hand-managed Session objects, and policy rb-3254 forbids requests in prod code; httpx keeps the requests-style API while fixing both.",
-    report="RB7034")
-When the score is clean, say "OK I'm ready." and stop."""
+CAPTURE_SYSP = (files('llmdojo')/'dojo_data'/'capture_prompt.md').read_text()
 
 async def capture_dojo(
     d=None, # Template store dir; `TMPL_DIR` if None
@@ -125,12 +88,10 @@ async def capture_dojo(
         proj = Path(tempfile.mkdtemp(prefix='claudedojo_'))
         (proj/'pyproject.toml').write_text('[project]\nname = "dojo-capture"\nversion = "0"\n')
         sid = str(uuid.uuid4())
-        opts = ClaudeAgentOptions(cwd=proj, session_id=sid, model=model, max_budget_usd=budget,
-            permission_mode='bypassPermissions', setting_sources=[],   # bare child: no user CLAUDE.md/settings; hookless transcripts need less curation
-            mcp_servers=dict(clikernel=dict(type='stdio', command=shutil.which('clikernel-mcp'))), strict_mcp_config=True,
-            thinking={'type':'adaptive'}, effort=effort,   # the gate cares about round quality, and curation strips thinking anyway
-            env={'LLMDOJO_STATE_DIR': str(proj/'state'), 'MAX_MCP_OUTPUT_TOKENS': '50000'},   # keep big doc() results inline, as interactive sessions see them;   # attempts write no machine-global state: a flagged attempt's session can outlive the SDK error and still score
-            system_prompt={'type':'preset','preset':'claude_code','append':CAPTURE_SYSP})
+        opts = ClaudeAgentOptions(cwd=proj, session_id=sid, model=model, max_budget_usd=budget, permission_mode='bypassPermissions',
+            setting_sources=[], mcp_servers=dict(clikernel=dict(type='stdio', command=shutil.which('clikernel-mcp'))), strict_mcp_config=True,
+            thinking=dict(type='adaptive'), effort=effort, env={'LLMDOJO_STATE_DIR': str(proj/'state'), 'MAX_MCP_OUTPUT_TOKENS': '50000'},
+            system_prompt=dict(type='preset', preset='claude_code', append=CAPTURE_SYSP))
         cost,err = 0,None
         try:
             async for m in query(prompt=TMPL_PROMPT, options=opts):
@@ -279,24 +240,35 @@ def append_dojo(
     _seed_doced(sid, meta.get('doced') or [], merge=True)   # merge: after a compact the hook truncated the record, so this is just the round's list
     return sid
 
+# %% ../nbs/00_claudedojo.ipynb #aa9b31fe
+def compact_dojo(
+    sid=None, # Session id or name to compact; the project's newest transcript if None
+    cwd=None, # Project directory; the current directory if None
+    d=None, # Template store dir; `TMPL_DIR` if None
+):
+    "Synthetically compact a session with the compact DSL, then append the template round; returns the session id"
+    c = compact_session(sid, cwd or '.')
+    return append_dojo(c.sid, cwd, d)
+
 # %% ../nbs/00_claudedojo.ipynb #29c39ffd
-USAGE = """usage: claudedojo [--build <dialog.ipynb> | --capture [model [effort]] | --sid | -r [sessid] | <claude args...>]
-Start claude in the current project with a completed dojo round already in its session history.
-  --build <dialog.ipynb>  convert a template dialog and store it, instead of launching
+USAGE = """usage: claudedojo [--build <dialog.ipynb> | --capture [model [effort]] | -r [sessid] | --compact [sessid] | <claude args...>]
+Prepare and print a Claude session id when called without arguments.
+  --build <dialog.ipynb>      convert a template dialog and store it, instead of launching
   --capture [model [effort]]  play a scripted round headlessly (Agent SDK), gate it with is_clean, and store it (default: fable, medium)
-  --sid                   prepare and print the session id, instead of launching; composes with shell aliases: claude -r $(claudedojo --sid)
-  -r [sess]               append the round to an existing session, by id or name (the project's newest if omitted), and print its id; after a compaction: claude -r $(claudedojo -r)
-  <claude args...>        anything else is passed through to claude"""
+  -r [sess]                   append the round to an existing session, by id or name (the project's newest if omitted), and print its id; after a compaction: claude -r $(claudedojo -r)
+  --compact [sess]            synthetically compact a session with the compact DSL and append the round: claude -r $(claudedojo --compact)
+  <claude args...>            anything else starts Claude with a prepared session and passes through the arguments"""
 
 def main():
     "CLI entry point; run `claudedojo -h` for usage"
     args = sys.argv[1:]
     if args[:1] in (['-h'], ['--help']) or (args[:1]==['--build'] and len(args)!=2) \
-        or (args[:1]==['--capture'] and len(args)>3) or (args[:1]==['-r'] and len(args)>2): return print(USAGE)
+        or (args[:1]==['--capture'] and len(args)>3) or (args[:1] in (['-r'],['--compact']) and len(args)>2): return print(USAGE)
+    if not args: return print(prep_dojo())
     if args[:1] == ['--build']: return build_template(args[1], cwd=Path.cwd())
     if args[:1] == ['-r']: return print(append_dojo(args[1] if len(args)==2 else None))
+    if args[:1] == ['--compact']: return print(compact_dojo(args[1] if len(args)==2 else None))
     if args[:1] == ['--capture']:
         asyncio.run(capture_dojo(model=args[1] if len(args)>1 else 'fable', effort=args[2] if len(args)>2 else 'medium'))   # discard the records: the console script sys.exit()s main's return value
         return
-    if args == ['--sid']: return print(prep_dojo())
     os.execvp('claude', ['claude', '-r', prep_dojo(), *args])

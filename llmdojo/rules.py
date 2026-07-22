@@ -220,7 +220,7 @@ def _sys_path(tree, src, sess):
 
 
 RULES = [
-    Rule('read_file', 'Read files with lnhashview_file.', _read_file),
+    Rule('read_file', 'Read files with lnhashview_file (for editing) or view_file(nums=False).', _read_file),
     Rule('big_replace', 'Replace a whole cell or file with %%exhash <path> [<cell_id>] % c; an inner region with a range-c address.', _big_replace),
     Rule('cell_str_replace', 'Edit notebook cells with %%exhash <path> <cell_id>.', _cell_str_replace),
     Rule('rawstr', 'Write non-trivial strings as r""" raw strings; %%exhash payloads need no escaping at all.', _rawstr),
