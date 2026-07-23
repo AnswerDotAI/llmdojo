@@ -266,7 +266,9 @@ def main():
         or (args[:1]==['--capture'] and len(args)>3) or (args[:1] in (['-r'],['--compact']) and len(args)>2): return print(USAGE)
     if not args: return print(prep_dojo())
     if args[:1] == ['--build']: return build_template(args[1], cwd=Path.cwd())
-    if args[:1] == ['-r']: return print(append_dojo(args[1] if len(args)==2 else None))
+    if args[:1] == ['-r']:
+        try: return print(append_dojo(args[1] if len(args)==2 else None))
+        except FileNotFoundError as e: sys.exit(f'{e}\nNo session to append to; to prepare a fresh one instead: claude -r $(claudedojo)')
     if args[:1] == ['--compact']: return print(compact_dojo(args[1] if len(args)==2 else None))
     if args[:1] == ['--capture']:
         asyncio.run(capture_dojo(model=args[1] if len(args)>1 else 'fable', effort=args[2] if len(args)>2 else 'medium'))   # discard the records: the console script sys.exit()s main's return value
