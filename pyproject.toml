@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
 ]
-dependencies = ['clikernel>=0.1.7', 'llmsurgery>=0.0.1']
+dependencies = ['clikernel>=0.1.7', 'llmsurgery>=0.0.1', 'aidialog']
 
 [project.urls]
 Repository = "https://github.com/AnswerDotAI/llmdojo"

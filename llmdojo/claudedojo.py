@@ -14,7 +14,8 @@ import asyncio, json, os, re, shutil, sys, tempfile, uuid
 from importlib.resources import files
 from fastcore.utils import *
 from llmsurgery.ant import *
-from llmsurgery.ipynb import read_ipynb, write_ipynb
+from aidialog.ipynb import read_ipynb, write_ipynb
+from aidialog.hist import chat2dlg
 from .rules import _state_root
 
 # %% ../nbs/00_claudedojo.ipynb #0c09a7a3

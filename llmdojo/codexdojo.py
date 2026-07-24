@@ -15,8 +15,8 @@ import asyncio, json, os, re, subprocess, sys, tempfile, uuid
 from importlib.resources import files
 from fastcore.utils import *
 from llmsurgery.oai import *
-from llmsurgery.compact import compact_chat
-from llmsurgery.ipynb import read_ipynb, write_ipynb
+from aidialog.compact import compact_chat
+from aidialog.ipynb import read_ipynb, write_ipynb
 from .rules import _state_root, _docnames
 
 # %% ../nbs/01_codexdojo.ipynb #1f05a641
