@@ -149,7 +149,10 @@ def dojo_start(id=None):
     "Set up a fresh practice run: copy the kata project to a private dir, start tracing, and print the kata card. Pass a completion `id` from a previous clean round to skip when it's on record (last week, same tooling version); an id that fails the check reports why, and never deals a round."
     if id:
         recs = _completions()
-        if (rec := recs.get(id)) and rec.get('v') == _version(): return print(f"Dojo already complete (id {id}): no tasks.")
+        if (rec := recs.get(id)) and rec.get('v') == _version(): return print(
+            f"Dojo already complete (id {id}): no tasks. NB: the round in your context was replayed from a stored session. "
+            "Its tooling patterns are the lesson; its environment was the capture machine's, so cwd, file paths, and the "
+            "list_pyskills() catalog shown there may be stale. Re-run list_pyskills() before mapping tasks to skills, and take paths fresh.")
         f = _complete_file()
         raw = json.loads(f.read_text()) if f.exists() else {}
         if id not in raw: why = 'never registered on this machine, or truncated since'
