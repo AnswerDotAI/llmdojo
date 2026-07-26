@@ -15,7 +15,7 @@ from importlib.resources import files
 from fastcore.utils import *
 from llmsurgery.ant import *
 from aidialog.ipynb import read_ipynb, write_ipynb
-from aidialog.hist import chat2dlg
+from llmsurgery.hist import chat2dlg
 from .rules import _state_root
 
 # %% ../nbs/00_claudedojo.ipynb #0c09a7a3
@@ -181,7 +181,7 @@ def load_template(
 ):
     "The stored template records and metadata"
     d = Path(d or TMPL_DIR)
-    return [json.loads(l) for l in (d/'template.jsonl').read_text().splitlines()], json.loads((d/'meta.json').read_text())
+    return (d/'template.jsonl').read_jsonl(), json.loads((d/'meta.json').read_text())
 
 # %% ../nbs/00_claudedojo.ipynb #658ba7f7
 def build_template(

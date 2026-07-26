@@ -15,7 +15,7 @@ import asyncio, json, os, re, subprocess, sys, tempfile, uuid
 from importlib.resources import files
 from fastcore.utils import *
 from llmsurgery.oai import *
-from aidialog.compact import compact_chat
+from llmsurgery.compact import compact_chat
 from aidialog.ipynb import read_ipynb, write_ipynb
 from .rules import _state_root, _docnames
 
@@ -252,7 +252,7 @@ def load_template(
 ):
     "The stored native items and metadata"
     d = Path(d or TMPL_DIR)
-    return [json.loads(x) for x in (d/'template.jsonl').read_text().splitlines()],json.loads((d/'meta.json').read_text())
+    return (d/'template.jsonl').read_jsonl(),json.loads((d/'meta.json').read_text())
 
 # %% ../nbs/01_codexdojo.ipynb #635dbdd7
 def build_template(

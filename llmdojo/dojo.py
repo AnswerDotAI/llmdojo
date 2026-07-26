@@ -1,7 +1,7 @@
 "Practice katas for tooling best practices, scored on the route taken, not just the outcome. Start with `dojo_start()`."
 import ast,json,os,re,shutil,sys,time,uuid
 from importlib.resources import files
-from pathlib import Path
+from fastcore.utils import *
 from llmdojo.rules import _state_root, live_session, scan, _callee, _calls
 
 __all__ = ['dojo_start','dojo_score','dojo_redo','dojo_resume','forget_dojo','dojo_version','register_completion']
@@ -241,7 +241,7 @@ def dojo_score(bash_calls=0, orient='', report=''):
     _RUN['orient'], _RUN['report'] = orient, report
     d = _RUN['dir']
     tr = Path(_RUN['trace'])
-    entries = [json.loads(l) for l in tr.read_text().splitlines()] if tr.exists() else []
+    entries = tr.read_jsonl() if tr.exists() else []
     cells = [e['src'] for e in entries]
     costs = [(0 if _is_free(s) else 1) + _nprints(s) for s in cells]
     tagged, unt, per = _attribute(cells, costs)
@@ -301,7 +301,7 @@ def dojo_redo(n):
     _RUN['paused'] = False
     tr = Path(_RUN['trace'])
     if tr.exists():
-        entries = [json.loads(l) for l in tr.read_text().splitlines()]
+        entries = tr.read_jsonl()
         keep = []
         for e, t in zip(entries, _kata_cells([e['src'] for e in entries])):
             if not n and not t and _costly(e['src']): continue
