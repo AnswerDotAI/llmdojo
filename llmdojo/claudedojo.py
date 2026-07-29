@@ -15,7 +15,7 @@ from importlib.resources import files
 from fastcore.utils import *
 from llmsurgery.ant import *
 from aidialog.ipynb import read_ipynb, write_ipynb
-from llmsurgery.hist import chat2dlg
+from aidialog.hist import chat2dlg
 from .rules import _state_root
 
 # %% ../nbs/00_claudedojo.ipynb #0c09a7a3
