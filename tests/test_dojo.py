@@ -26,6 +26,7 @@ def test_dojo(tmp_path, monkeypatch):
     hostile = dj._TMPL_PAYLOAD                               # kata 3 payload defeats every Python literal form
     assert "'"*3 in hostile and '"'*3 in hostile and '\\' in hostile and '\n' in hostile
     d = dj._RUN['dir']
+    assert d == tmp_path/'dojo'/'run'                        # one fixed path: receipts are deterministic, so captures and replays need no normalization
     assert (d/'core.py').exists() and (d/'nbs'/'01_api.ipynb').exists() and (d/'report.py').exists()
 
     run("x = 1 + 1")                                      # 1 stroke
@@ -184,10 +185,9 @@ def test_start_refusals(tmp_path, monkeypatch, capsys):
     dj.dojo_start('cafe')
     assert 'never registered' in capsys.readouterr().out    # absent id: no record at all
     import json, time
-    dj._complete_file().write_text(json.dumps({'old1': dict(t=time.time()-8*86400, v=dj.dojo_version())}))
+    dj._complete_file().write_text(json.dumps({'old1': dict(t=time.time()-30*86400, v=dj.dojo_version())}))
     dj.dojo_start('old1')
-    out = capsys.readouterr().out
-    assert 'expired' in out and '8 days ago' in out         # expired id: age reported
+    assert 'already complete' in capsys.readouterr().out    # age alone never invalidates: only the version gates
     assert dict(dj._RUN) == before                          # no round was dealt by any refusal
 
 

@@ -27,6 +27,7 @@ llmdojo = "llmdojo._modidx:d"
 [project.scripts]
 claudedojo = "llmdojo.claudedojo:main"
 codexdojo = "llmdojo.codexdojo:main"
+dojobuild = "llmdojo.tmpl:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "llmdojo.__version__"}

@@ -1,5 +1,5 @@
 "Practice katas for tooling best practices, scored on the route taken, not just the outcome. Start with `dojo_start()`."
-import ast,json,os,re,shutil,sys,time,uuid
+import ast,hashlib,json,os,re,shutil,sys,time
 from importlib.resources import files
 from fastcore.utils import *
 from llmdojo.rules import _state_root, live_session, scan, _callee, _calls
@@ -8,11 +8,10 @@ __all__ = ['dojo_start','dojo_score','dojo_redo','dojo_resume','forget_dojo','do
 
 _RUN = {}
 
-_WEEK = 7*86400
 
 def _version():
     from llmdojo import __version__
-    return f"{__version__}:3"
+    return f"{__version__}:4"   # :N is the round revision: bump it whenever the round or its receipts change
 
 def _complete_file():
     "Completion record path: a sibling of the swept run root, so the sweep never touches it"
@@ -21,10 +20,9 @@ def _complete_file():
     return d/'dojo_complete.json'
 
 def _completions():
-    "Completion records {id: {t, v}} from the last week; older entries are pruned"
+    "Completion records {id: {t, v}}"
     f = _complete_file()
-    recs = json.loads(f.read_text()) if f.exists() else {}
-    return {k: r for k, r in recs.items() if r['t'] > time.time() - _WEEK}
+    return json.loads(f.read_text()) if f.exists() else {}
 
 def dojo_version():
     "The current dojo tooling version, as recorded with completion ids"
@@ -38,7 +36,7 @@ def register_completion(cid, v=None):
     return cid
 
 def forget_dojo():
-    "Truncate the dojo completion record (e.g. after a tooling change): every session redoes the round"
+    "Truncate the dojo completion record: every session redoes the round. An escape hatch for what versioning can't cover (forcing redos without a version bump, or a corrupt record file); tooling and round changes invalidate old ids by themselves, via the version gate"
     _complete_file().write_text('{}')
 
 _SQ3 = "'''"   # can't appear literally inside the rf''' below: the same trap kata 3 sets
@@ -136,6 +134,11 @@ def _log(info):
     with open(_RUN['trace'], 'a') as f: f.write(json.dumps({'src': info.raw_cell}) + '\n')
 
 
+def _run_dir():
+    "The fixed dir a round is dealt into: constant per state dir, so a machine's receipts are deterministic"
+    return _state_root()/'dojo'/'run'
+
+
 
 def _rm_run(p):
     "The one place we rmtree, so the one place a corrupted path could do damage: refuse anything that isn't strictly inside the dojo root, checked fresh at delete time"
@@ -146,22 +149,16 @@ def _rm_run(p):
 
 
 def dojo_start(id=None):
-    "Set up a fresh practice run: copy the kata project to a private dir, start tracing, and print the kata card. Pass a completion `id` from a previous clean round to skip when it's on record (last week, same tooling version); an id that fails the check reports why, and never deals a round."
+    "Set up a fresh practice run: copy the kata project to a private dir, start tracing, and print the kata card. Pass a completion `id` from a previous clean round to skip when it's on record (same tooling version); an id that fails the check reports why, and never deals a round."
     if id:
         recs = _completions()
         if (rec := recs.get(id)) and rec.get('v') == _version(): return print(f"Dojo already complete (id {id}): no tasks.")
-        f = _complete_file()
-        raw = json.loads(f.read_text()) if f.exists() else {}
-        if id not in raw: why = 'never registered on this machine, or truncated since'
-        elif id not in recs: why = f"expired: its clean round was {(time.time()-raw[id]['t'])/86400:.0f} days ago, and records last a week"
-        else: why = f"recorded under tooling {raw[id]['v']}, but the current tooling is {_version()}"
+        if id not in recs: why = 'never registered on this machine, or truncated since'
+        else: why = f"recorded under tooling {recs[id]['v']}, but the current tooling is {_version()}"
         return print(f"id {id!r} not on record ({why}). Checking never deals a round: run dojo_start() when ready to play one.")
     from IPython import get_ipython
-    root = _state_root()/'dojo'
-    if root.exists():   # sweep runs abandoned by earlier sessions
-        for old in root.iterdir():
-            if old.stat().st_mtime < time.time() - 86400: _rm_run(old)
-    d = root/uuid.uuid4().hex[:8]
+    d = _run_dir()   # one fixed path per state dir, so receipts are deterministic on a machine; stored templates canonicalize it further (see llmdojo.tmpl)
+    if d.exists(): _rm_run(d)        # a prior abandoned round; this dojo is single-player per state dir
     shutil.copytree(files('llmdojo')/'dojo_data'/'proj', d)
     if _RUN.get('ip'):   # a prior unfinished round: drop its hook and state so nothing stale leaks in
         try: _RUN['ip'].events.unregister('pre_run_cell', _RUN['log'])
@@ -169,7 +166,7 @@ def dojo_start(id=None):
     _RUN.clear()
     _RUN.update(dir=d, trace=d/'trace.jsonl', ip=get_ipython(), log=_log, cwd0=Path.cwd())
     _RUN['ip'].events.register('pre_run_cell', _RUN['log'])
-    sys.path[:] = [p for p in sys.path if not p.startswith(str(root))]   # stale entries from abandoned rounds
+    sys.path[:] = [p for p in sys.path if not p.startswith(str(d))]   # a stale entry from an abandoned round
     sys.path.insert(0, str(d))                                            # kata files importable during the round
     sys.modules.pop('report', None)
     print(_card())
@@ -285,7 +282,7 @@ def dojo_score(bash_calls=0, orient='', report=''):
             os.chdir(c0)
         _rm_run(d)
         _RUN.clear()
-        cid = register_completion(uuid.uuid4().hex[:4])
+        cid = register_completion(hashlib.sha256('\x00'.join(cells).encode()).hexdigest()[:4])   # content-derived: identical rounds share a receipt, keeping replays byte-stable
         print(f"Clean round. Run dir removed{' and cwd restored' if restored else ''}. Completion id: {cid} - keep this id, including through compaction: passing dojo_start({cid!r}) in a future session skips the round.")
     else:
         _RUN['paused'] = True

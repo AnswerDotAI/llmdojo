@@ -8,7 +8,7 @@ LLM coding agents imitate what their context shows far more reliably than what i
 - `llmdojo.rules`: session rules, applied live to every kernel cell through clikernel’s inspector hook. Routing rules teach the designed tool for each job, string-safety rules catch quoting mistakes, gating rules block the genuinely dangerous, and the `nodoc` rule tracks per-conversation doc-state so tooling docs actually get read before first use.
 - `llmdojo.dojo`: a short scored practice round (the katas) an agent completes at session start, so its first real tool calls follow a demonstrated clean pass rather than being produced cold. Clean rounds mint a completion id that later sessions can present instead of replaying.
 - `llmdojo.claudedojo`: capture a clean round from a live Claude Code session, curate it into a deterministic template, and launch new sessions that *resume* it, so every session opens with the worked round already in context.
-- `llmdojo.codexdojo`: capture a clean Codex thread into a native Responses-item template, then launch new Codex sessions from the reviewed template.
+- `llmdojo.codexdojo`: the Codex mirror - the same canonical template compiled to native Responses items, launching and re-warming Codex threads through app-server.
 
 ## Usage
 
@@ -24,21 +24,29 @@ Activation is two lines of clikernel user config: register the rules in `$XDG_CO
 
 `dojo_start()` deals a scored practice round inside a clikernel session. Pass the completion id from a clean round to skip replaying it while that receipt remains valid.
 
-Claude Code and Codex can start with a reviewed round already in their history:
+Claude Code and Codex can start with a reviewed round already in their history. Each launcher prepares a warm-start conversation and prints its id, so any further agent flags compose on the outside:
 
 ``` sh
-$ claudedojo
-$ codexdojo
+$ claude -r $(claudedojo)
+$ codex resume $(codexdojo)
 ```
 
-Arguments after either command pass through to the underlying agent. After compaction, append the worked round to the existing conversation and resume it:
+After compaction, `-r` appends the worked round to the existing conversation instead of preparing a fresh one:
 
 ``` sh
 $ claude -r $(claudedojo -r)
 $ codex resume $(codexdojo -r)
 ```
 
-Template maintainers can capture fresh rounds with `claudedojo --capture` and `codexdojo --capture`, import an existing Codex round with `codexdojo --capture-current`, and compile a reviewed dialog with `--build <dialog.ipynb>`.
+### Update the templates
+
+When tooling docs or skills change, the baked round’s outputs go stale. One command regenerates them with no model spend - it replays the round’s cells through a fresh kernel, splices the current outputs into the canonical template dialog, and rebuilds both stores:
+
+``` sh
+$ dojobuild
+```
+
+Only a change to the round itself - its cells, not their outputs - needs a fresh capture: `claudedojo --capture` plays a scripted round headlessly, `codexdojo --capture` does the same in a Codex child, and `--current` on either stores a clean round an existing session already played. After reviewing a captured dialog, `dojobuild --claude` and `dojobuild --codex` compile it into each store without re-replaying.
 
 ### State and templates
 
@@ -58,6 +66,6 @@ dojo_version()
 
 ### Limitations
 
-A tooling rename does not change the dojo version automatically. Rebuild templates whenever names used by the worked round or its documentation change.
+A tooling rename does not change the dojo version automatically: run `dojobuild` whenever documentation or receipts the round shows have changed, and bump the round revision in `dojo.py` when the round itself must be replayed by every session.
 
 Doc-state host detection has two conservative fallbacks. Two simultaneous Claude conversations in the same project can select the wrong transcript record. Codex’s MCP worker is keyed by parent process id, so compaction clears all numeric records; another live Codex session may receive extra documentation reminders. The reminders are harmless.
