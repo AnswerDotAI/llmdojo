@@ -1,4 +1,6 @@
-# The template dialogs defeat diff review: one huge md cell whose rebuilds scatter changes
-# (nbdime's driver hangs on it - quadratic inline diff), and a regenerated round's JSON
-# isn't reviewable as a diff anyway. Hide them by default; `git diff --text` forces a look.
+# The template dialog and its compiled stores defeat diff review: one huge md cell (or one
+# jsonl record) per line, whose rebuilds scatter changes - nbdime's driver hangs on the
+# dialog (quadratic inline diff), and regenerated rounds aren't reviewable as diffs anyway.
+# Hide them by default; `git diff --text` forces a look.
 llmdojo/dojo_data/*template*.ipynb -diff
+llmdojo/dojo_data/*_store/** -diff

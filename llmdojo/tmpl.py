@@ -64,16 +64,12 @@ def load_store(
 # %% ../nbs/02_tmpl.ipynb #f0e81e3c
 def load_reg(
     d, # Store dir; `default` if None
-    default, # The backend's default store dir
-    pkg, # The packaged fallback dialog's filename in `dojo_data`
-    build, # The backend's dialog-to-store converter, e.g. its `build_template`
+    default, # The backend's packaged store dir
     prog, # The backend's program name, for the skew warning
 ):
-    "Load a template store (built from the packaged dialog if empty), warn on version skew, and register its completion id"
-    d = Path(d or default)
-    if not (d/'template.jsonl').exists(): build(files('llmdojo')/'dojo_data'/pkg, d)
-    items,meta = load_store(d)
-    if meta['v'] != _dojo_v(): print(f"{prog}: template built under {meta['v']} but installed tooling is {_dojo_v()}; the baked round will not validate. Rebuild with dojobuild, or recapture with {prog} --capture.", file=sys.stderr)
+    "Load a template store, warn on version skew, and register its completion id"
+    items,meta = load_store(Path(d or default))
+    if meta['v'] != _dojo_v(): print(f"{prog}: template built under {meta['v']} but installed tooling is {_dojo_v()}; the baked round will not validate. Rebuild with dojobuild.", file=sys.stderr)
     from llmdojo.dojo import register_completion
     register_completion(meta['cid'], meta['v'])
     return items,meta

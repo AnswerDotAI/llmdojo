@@ -97,7 +97,7 @@ def mk_template(
     return dlg
 
 # %% ../nbs/00_claudedojo.ipynb #a288458d
-TMPL_DIR = _state_root()/'template'
+TMPL_DIR = files('llmdojo')/'dojo_data'/'claude_store'   # package data: compiled by dojobuild, shipped with the code
 
 def save_template(
     recs, # Curated template records
@@ -181,8 +181,8 @@ async def capture_dojo(
 
 # %% ../nbs/00_claudedojo.ipynb #67610ec0
 def _load_reg(d):
-    "The loaded store, registered, defaulting and building via the shared `load_reg`"
-    return load_reg(d, TMPL_DIR, 'dojo_template.ipynb', build_template, 'claudedojo')
+    "The loaded packaged store, registered, via the shared `load_reg`"
+    return load_reg(d, TMPL_DIR, 'claudedojo')
 
 def prep_dojo(
     cwd=None, # Project to start in; the current directory if None

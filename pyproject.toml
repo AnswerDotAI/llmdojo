@@ -33,6 +33,9 @@ dojobuild = "llmdojo.tmpl:main"
 version = {attr = "llmdojo.__version__"}
 
 [tool.setuptools.packages.find]
-include = ["llmdojo"]
+include = ["llmdojo*"]
+
+[tool.setuptools.package-data]
+llmdojo = ["dojo_data/**/*"]
 
 [tool.nbdev]

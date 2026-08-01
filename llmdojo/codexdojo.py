@@ -205,7 +205,7 @@ def dojo_sample(src):
     return compact_chat(items2chat(out), **SAMPLE_POLICY)
 
 # %% ../nbs/01_codexdojo.ipynb #540516dd
-TMPL_DIR = _state_root()/'codex_template'
+TMPL_DIR = files('llmdojo')/'dojo_data'/'codex_store'   # package data: compiled by dojobuild, shipped with the code
 
 # %% ../nbs/01_codexdojo.ipynb #2b6684cd
 def save_template(
@@ -235,8 +235,8 @@ def build_template(
 
 # %% ../nbs/01_codexdojo.ipynb #c51d054b
 def _load_reg(d):
-    "The loaded store, registered, defaulting and building via the shared `load_reg`"
-    return load_reg(d, TMPL_DIR, 'dojo_template.ipynb', build_template, 'codexdojo')
+    "The loaded packaged store, registered, via the shared `load_reg`"
+    return load_reg(d, TMPL_DIR, 'codexdojo')
 
 # %% ../nbs/01_codexdojo.ipynb #f1c3a7b5
 async def prep_dojo(
