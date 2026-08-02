@@ -2,9 +2,9 @@
 import ast,hashlib,json,os,re,shutil,sys,time
 from importlib.resources import files
 from fastcore.utils import *
-from llmdojo.rules import _state_root, live_session, scan, _callee, _calls
+from llmdojo.rules import _state_root, live_session, scan, _callee, _calls, doced
 
-__all__ = ['dojo_start','dojo_score','dojo_redo','dojo_resume','forget_dojo','dojo_version','register_completion']
+__all__ = ['dojo_start','dojo_score','dojo_redo','dojo_resume','forget_dojo','dojo_version','register_completion','doced']
 
 _RUN = {}
 
@@ -254,7 +254,7 @@ def dojo_score(bash_calls=0, orient='', report=''):
     fails = [(k, k['check'](d)) for k in KATAS]
     print(f"strokes {strokes:g} + doc penalties {pen} = {strokes+pen:g}, par {par}")
     for c, s in zip(costs, cells): print(f"  {c}| {(s.splitlines() or [''])[0][:70]}")
-    if undoc: print(f"  undoc'd first uses: {', '.join(sorted(undoc))} - doc them now and rescore: a doc() run right after the warning is never penalized")
+    if undoc: print(f"  undoc'd first uses: {', '.join(sorted(undoc))} - doc them now and rescore: a doc() - or doced(), for docs already visible in context - right after the warning is never penalized")
     for name, note in finds.items(): print(f"habit miss [{name}]: {note}")
     miss = [s.strip().splitlines()[0] for s in cells if re.match(r'#\s*kata\b', s.strip(), re.I) and not _kata_tag(s)]
     if miss: print("looked like tags but aren't (exact format: a comment-only cell '# kata <n>'): " + '; '.join(repr(m[:50]) for m in miss))

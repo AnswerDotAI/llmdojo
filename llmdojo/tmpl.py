@@ -15,7 +15,7 @@ import json, os, re, subprocess, sys, tempfile
 from importlib.resources import files
 from fastcore.utils import *
 from fastcore.script import call_parse
-from clikernel.base import _MARKER as _CLIK_MARKER
+from clikernel.cli import _MARKER as _CLIK_MARKER
 from aidialog.ipynb import read_ipynb, write_ipynb
 from aidialog.hist import reply2dlg, dlg2reply, _parse_call
 from aidialog.dialog import code_output, prompt_output

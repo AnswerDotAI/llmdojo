@@ -6,7 +6,10 @@ from pathlib import Path
 from io import StringIO
 from fastcore.basics import store_attr
 from fastcore.xdg import xdg_state_home
-from clikernel.base import RuleBlock
+from IPython.core.error import InputRejected
+
+class RuleBlock(InputRejected):
+    "Raised to deliberately block a cell; clikernel's kernel-side inspector hook propagates any `InputRejected`, and everything else fails open"
 
 def _state_root():
     if d := os.environ.get("LLMDOJO_STATE_DIR"): return Path(d).expanduser()
@@ -107,10 +110,11 @@ def _tuple_payload(tree, src, sess):
         cmds = _cmds(c)
         if len(cmds) != 1 or not isinstance(cmds[0], ast.Tuple): continue
         n = cmds[0]
-        if len(n.elts) >= 3 \
-           and isinstance(n.elts[1], ast.Constant) and n.elts[1].value in ('a','i','c') \
-           and isinstance(n.elts[2], ast.Constant) and isinstance(n.elts[2].value, str) \
-           and (len(n.elts[2].value) > 20 or any(ch in n.elts[2].value for ch in '\'"\\')): return True
+        if len(n.elts) < 3: continue
+        cmd,payload = n.elts[1],n.elts[2]
+        if not (isinstance(cmd, ast.Constant) and cmd.value in ('a','i','c')): continue
+        if not (isinstance(payload, ast.Constant) and isinstance(payload.value, str)): continue
+        if len(payload.value) > 20 or any(ch in payload.value for ch in '\'"\\'): return True
 
 
 def _s_repls(tree):
@@ -118,10 +122,9 @@ def _s_repls(tree):
     for c in _calls(tree):
         if _callee(c) not in ('exhash','file_exhash','cell_exhash'): continue
         for n in ast.walk(c):
-            if isinstance(n, ast.Tuple) and len(n.elts) >= 4 \
-               and isinstance(n.elts[1], ast.Constant) and n.elts[1].value == 's' \
-               and isinstance(n.elts[3], ast.Constant) and isinstance(n.elts[3].value, str):
-                yield n.elts[3].value
+            if not (isinstance(n, ast.Tuple) and len(n.elts) >= 4): continue
+            if not (isinstance(n.elts[1], ast.Constant) and n.elts[1].value == 's'): continue
+            if isinstance(n.elts[3], ast.Constant) and isinstance(n.elts[3].value, str): yield n.elts[3].value
 
 
 def _s_newline(tree, src, sess): return any('\\n' in r for r in _s_repls(tree))
@@ -200,6 +203,7 @@ def _nodoc(tree, src, sess):
                and any(_callee(c) == 'doc' and c not in hollow and any(isinstance(a, ast.Name) and a.id == g.target.id for a in c.args) for c in _calls(n)):
                 sess.doced.update(x for e in g.iter.elts for x in _docnames(ast.unparse(e)))
     new = {nm for c in _calls(tree) if (nm := _callee(c)) and not nm.startswith('_') and nm not in _EXEMPT and nm not in sess.doced
+        and re.search(rf'\b{re.escape(nm)}\b', src)   # absent from the raw cell means transform-injected (%run -> get_ipython().run_line_magic): never the user's call
         and callable(sess.ns.get(nm)) and _needs_doc(sess.ns[nm])}
     sess.undoced |= new
     return ', '.join(sorted(new)) if new else None
@@ -232,7 +236,7 @@ RULES = [
     Rule('run_magic', 'Invoke magics directly with % syntax.', _run_magic, raw=True),
     Rule('piecemeal', 'Load skill modules whole: from <pkg>.skill import *, after doc(<pkg>.skill).', _piecemeal),
     Rule('hollow_doc', "A doc() that is neither the cell's last expression nor printed displays nothing: it looks like reading the docs while reading nothing. This is a critical trust issue, not a style point. The user audits work through signals like this one, and a single faked signal makes every other signal suspect; pretending to follow a rule is far worse than openly questioning it. These rules exist because skipping them caused real failures in practice. End the cell with a bare doc(...), batching several names into one call.", _hollow_doc, block=True),
-    Rule('nodoc', 'Rule violation: `{0}` docs not read before first use. Run `doc({0})` as your next tool call.', _nodoc, tag='warn'),
+    Rule('nodoc', 'Rule violation: `{0}` docs not read before first use. Run `doc({0})`, or `doced({0})` if docs are already in context.', _nodoc, raw=True, tag='warn'),
     Rule('shell_escape', 'Run shell commands with the Bash tool.', _shell_escape, block=True),
     Rule('sys_path', 'Never modify sys.path; stop and ask the user.', _sys_path, block=True)]
 

@@ -109,6 +109,9 @@ def test_session_rules(monkeypatch):
     assert any('doc(rg)' in n for n in notes)                      # the note names the specific function
     assert not fires("len('abc')", "nodoc", Session(ns=ns))       # stdlib: quiet
     assert not fires("_helper()", "nodoc", Session(ns={"_helper": rgapi.skill.rg}))  # private names are internals, not curated API
+    # a call in the transformed tree but absent from the raw cell was injected by IPython (%run -> get_ipython().run_line_magic): never flagged
+    assert not fires("%run x.py", "nodoc", Session(ns={"get_ipython": rgapi.skill.rg}))
+    assert fires("get_ipython()", "nodoc", Session(ns={"get_ipython": rgapi.skill.rg}))  # genuinely typed: still flagged
     import fastcore.basics
     assert not fires("store_attr()", "nodoc", Session(ns={"store_attr": fastcore.basics.store_attr}))  # fastcore is ambient vocabulary, not tooling
     import llmdojo.dojo as dj
@@ -116,13 +119,15 @@ def test_session_rules(monkeypatch):
     # __main__ functions were authored in-session: never need doc(), even when a Path __file__ leaks into the namespace
     import sys, types
     from pathlib import Path
-    fake_main = types.ModuleType('__main__'); fake_main.__file__ = Path('/tmp/proj/nb.py')
+    fake_main = types.ModuleType('__main__')
+    fake_main.__file__ = Path('/tmp/proj/nb.py')
     monkeypatch.setitem(sys.modules, '__main__', fake_main)
     def mainfn(): pass
     mainfn.__module__ = '__main__'
     assert not fires("mainfn()", "nodoc", Session(ns={"mainfn": mainfn}))
     # exotic loaders can set any module's __file__ to a Path: coerced, not crashed
-    fakemod = types.ModuleType('fakemod'); fakemod.__file__ = Path('/tmp/proj/fakemod.py')
+    fakemod = types.ModuleType('fakemod')
+    fakemod.__file__ = Path('/tmp/proj/fakemod.py')
     monkeypatch.setitem(sys.modules, 'fakemod', fakemod)
     def toolfn(): pass
     toolfn.__module__ = 'fakemod'

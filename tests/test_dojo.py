@@ -1,6 +1,6 @@
 import re, pytest
 from pathlib import Path
-from clikernel.cli import _stream_text
+from clikernel.core import render_outs as _stream_text
 import llmdojo.dojo as dj
 
 
