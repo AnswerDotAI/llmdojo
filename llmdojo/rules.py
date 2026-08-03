@@ -1,6 +1,6 @@
 """Best-practice detection rules shared by the live cell inspectors and the dojo scorer. Each note teaches exactly one route, since agents reproduce whatever patterns their context shows them.
 
-Doc-state persists per host conversation: if the conversation survived a kernel restart and the relevant `doc()` output is still visible, call `doced(name1, name2, ...)` to restore doc state without reprinting it; after context compaction, call `forget_doced()` and read the docs again."""
+Doc-state persists per host conversation: if the conversation survived a kernel restart and the relevant `doc()` output is still visible, call `doced(name='key', ...)` — keys copied from each doc's `# doced:` line or bracketed summary key — to restore doc state without reprinting it. Declarations are verified against the live rendering, so a wrong or stale key is rejected. After context compaction, call `forget_doced()` and read the docs again."""
 import ast,importlib.util,json,os,re,sys,time,tokenize
 from pathlib import Path
 from io import StringIO
@@ -193,9 +193,8 @@ def _hollow_doc(tree, src, sess): return bool(_hollow_docs(tree))
 
 def _nodoc(tree, src, sess):
     hollow = set(_hollow_docs(tree))               # a doc() that can't display reads nothing: no credit
-    for c in _calls(tree):                          # record displayed doc() reads; doced() is exempt from display (it returns nothing by design)
+    for c in _calls(tree):                          # record displayed doc() reads; doced() records at runtime, key-verified
         if _callee(c) == 'doc' and c not in hollow: sess.doced.update(x for a in c.args for x in _docnames(ast.unparse(a)))
-        if _callee(c) == 'doced': sess.doced.update(x for a in c.args for x in _docnames(a.value if isinstance(a, ast.Constant) else ast.unparse(a)))
     for n in ast.walk(tree):                        # doc(f) looped over literal names docs each element
         if isinstance(n, (ast.For, ast.ListComp, ast.SetComp, ast.GeneratorExp)):
             g = n if isinstance(n, ast.For) else n.generators[0]
@@ -236,7 +235,7 @@ RULES = [
     Rule('run_magic', 'Invoke magics directly with % syntax.', _run_magic, raw=True),
     Rule('piecemeal', 'Load skill modules whole: from <pkg>.skill import *, after doc(<pkg>.skill).', _piecemeal),
     Rule('hollow_doc', "A doc() that is neither the cell's last expression nor printed displays nothing: it looks like reading the docs while reading nothing. This is a critical trust issue, not a style point. The user audits work through signals like this one, and a single faked signal makes every other signal suspect; pretending to follow a rule is far worse than openly questioning it. These rules exist because skipping them caused real failures in practice. End the cell with a bare doc(...), batching several names into one call.", _hollow_doc, block=True),
-    Rule('nodoc', 'Rule violation: `{0}` docs not read before first use. Run `doc({0})`, or `doced({0})` if docs are already in context.', _nodoc, raw=True, tag='warn'),
+    Rule('nodoc', "Rule violation: `{0}` docs not read before first use. Run `doc({0})`, or `doced({0}='<key>')` from visible doc output.", _nodoc, raw=True, tag='warn'),
     Rule('shell_escape', 'Run shell commands with the Bash tool.', _shell_escape, block=True),
     Rule('sys_path', 'Never modify sys.path; stop and ask the user.', _sys_path, block=True)]
 
@@ -308,14 +307,24 @@ def live_session(ns=None):
     _load_doced(sess)
     return sess
 
-def doced(*names):
-    "Declare tooling functions (bare symbols or name strings) whose docs are verbatim in your context (a host restart where the conversation survived): doc-state is restored without re-reading. With no names, show the current set. If you cannot see a function's docs in context, read doc(f) instead."
+def doced(**names):
+    "Declare tooling whose exact `doc()` output is visible in your context, key-verified: `doced(rg='3f2a')`, copying each key from the `# doced:` line (or bracketed summary key) in that output. With no names, show the current set. A rejected key means the docs changed or are not truly in context: read doc(f) instead."
     global _LIVE
     if _LIVE is None: _LIVE = Session()
     _load_doced(_LIVE)
     if not names: return sorted(_LIVE.doced)
-    _LIVE.doced.update(getattr(n, '__name__', n) for n in names)
+    from pyskills import doc_key
+    try: ns = get_ipython().user_ns
+    except NameError:
+        frm = sys._getframe(1)
+        ns = {**frm.f_globals, **frm.f_locals}
+    ok = [nm for nm,key in names.items() if nm in ns and doc_key(ns[nm]) == key]
+    bad = [nm for nm in names if nm not in ok]
+    _LIVE.doced.update(ok)
     _save_doced(_LIVE)
+    res = f"recorded: {', '.join(ok)}" if ok else ''
+    if bad: res += f"\nkey mismatch (docs changed, or not truly in context) - read doc({', '.join(bad)}) instead"
+    return res.strip()
 
 def forget_doced():
     "Reset the doc-state record (e.g. after context compaction): every tooling function needs a fresh doc(f) before its next use."

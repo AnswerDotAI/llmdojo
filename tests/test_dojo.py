@@ -16,7 +16,8 @@ def test_dojo(tmp_path, monkeypatch):
 
     run("import llmdojo.dojo")
     run("from llmdojo.rules import doced")
-    run("doced('pretool')")                                 # pre-round declaration: persists before any inspector exists
+    run("pretool = llmdojo.dojo._card; from pyskills import doc_key")
+    run("doced(pretool=doc_key(pretool))")                  # pre-round declaration, key-verified: persists before any inspector exists
     run("from llmdojo.dojo import *")
     card = run("dojo_start()")
     assert "== llmdojo ==" in card and "(par 2)" in card and "(par 1)" in card and "par 3" not in card and "best route" in card and "%cd" in card and "print()" in card
@@ -61,7 +62,7 @@ def test_dojo(tmp_path, monkeypatch):
     out = run("dojo_score(bash_calls=1)")
     assert "doc penalties 1" in out and "undoc'd first uses: fake" in out   # pre-round doced honored: only fake flagged
     assert "never penalized" in out                                          # the report says how to clear the misses
-    run("doced('fake')")                                    # free declaration remedies the miss
+    run("doced(fake=doc_key(fake))")                        # free declaration remedies the miss
     decoy = "httpx is modern and async-friendly"                            # plausible guess: lacks the documented why
     out = run(f"dojo_score(bash_calls=1, orient={decoy!r})")
     assert "strokes 7 + doc penalties 0" in out and "habit miss" not in out # doc-fix forgiven on rescore

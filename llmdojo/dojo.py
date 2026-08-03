@@ -254,7 +254,7 @@ def dojo_score(bash_calls=0, orient='', report=''):
     fails = [(k, k['check'](d)) for k in KATAS]
     print(f"strokes {strokes:g} + doc penalties {pen} = {strokes+pen:g}, par {par}")
     for c, s in zip(costs, cells): print(f"  {c}| {(s.splitlines() or [''])[0][:70]}")
-    if undoc: print(f"  undoc'd first uses: {', '.join(sorted(undoc))} - doc them now and rescore: a doc() - or doced(), for docs already visible in context - right after the warning is never penalized")
+    if undoc: print(f"  undoc'd first uses: {', '.join(sorted(undoc))} - doc them now and rescore: a doc() - or doced(f='<key>') with the key from visible doc output - right after the warning is never penalized")
     for name, note in finds.items(): print(f"habit miss [{name}]: {note}")
     miss = [s.strip().splitlines()[0] for s in cells if re.match(r'#\s*kata\b', s.strip(), re.I) and not _kata_tag(s)]
     if miss: print("looked like tags but aren't (exact format: a comment-only cell '# kata <n>'): " + '; '.join(repr(m[:50]) for m in miss))

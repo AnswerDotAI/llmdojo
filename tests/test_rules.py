@@ -169,11 +169,9 @@ def test_session_rules(monkeypatch):
     assert not fires("doc(rg)", "nodoc", s7)                      # a displayed doc() ends the nag
     assert not fires("rg('x', '.')", "nodoc", s7)
     s8 = Session(ns=ns)
-    assert not fires("doced('rg')\nrg('x', '.')", "nodoc", s8)    # declaring is recorded at scan time, like doc()
-    s9 = Session(ns=ns)
-    assert not fires("doced(rg)\nrg('y', '.')", "nodoc", s9)      # bare symbols declare too
+    assert fires("doced(rg='0000')\nrg('x', '.')", "nodoc", s8)   # the scan credits nothing: only runtime doced(), key-verified, records
     import llmdojo.rules as cr
-    assert not fires("doced('x')\nforget_doced()", "nodoc", Session(ns={"doced": cr.doced, "forget_doced": cr.forget_doced}))  # the prescribed interfaces are exempt
+    assert not fires("doced(x='0000')\nforget_doced()", "nodoc", Session(ns={"doced": cr.doced, "forget_doced": cr.forget_doced}))  # the prescribed interfaces are exempt
 
 
 def test_notes_single_way():
@@ -185,7 +183,7 @@ def test_notes_single_way():
 
 
 def test_doced_state(tmp_path, monkeypatch):
-    "doced survives worker restarts via a ppid-keyed state file; doced() declares; forget_doced() resets; stale files swept on save; external writes win"
+    "doced survives worker restarts via a ppid-keyed state file; doced() declares, key-verified; forget_doced() resets; stale files swept on save; external writes win"
     monkeypatch.setenv("LLMDOJO_STATE_DIR", str(tmp_path))
     import os, llmdojo.rules as cr
     stale = tmp_path/'doced'/'99999.json'
@@ -197,14 +195,17 @@ def test_doced_state(tmp_path, monkeypatch):
     assert not stale.exists()                       # abandoned session state swept on save
     cr.make_inspector()                             # a fresh worker in the same session
     assert 'rg' in cr._LIVE.doced                   # state survived the restart
-    cr.doced('lnhashview_file')
-    cr.doced(cr.forget_doced)                       # plain symbols work too, like doc()
+    import rgapi.skill
+    from pyskills import doc_key
+    fd,ls = rgapi.skill.fd, rgapi.skill.ls
+    assert 'recorded: fd' in cr.doced(fd=doc_key(fd))   # a right key is recorded
+    assert 'key mismatch' in cr.doced(ls='0000')        # a wrong key is rejected, not recorded
     cr.make_inspector()
-    assert {'rg','lnhashview_file','forget_doced'} <= set(cr.doced())
+    assert {'rg','fd'} <= set(cr.doced()) and 'ls' not in cr.doced()
     cr.forget_doced()
     cr.make_inspector()
     assert not cr._LIVE.doced                       # post-compaction reset: everything needs doc() again
-    cr.doced('rg')
+    cr.doced(rg=doc_key(rgapi.skill.rg))
     cr._doced_file().write_text('["fd"]')           # an external writer (the compaction hook) owns the file
     assert cr.doced() == ['fd']                     # the file is the source of truth: external writes win
     monkeypatch.setenv("CODEX_THREAD_ID", "codex-123")
