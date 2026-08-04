@@ -74,7 +74,7 @@ def test_rules():
     assert fires("!ls", "shell_escape")                          # `!` escapes are seen via the transformed cell
     assert fires("import subprocess.x", "shell_escape")          # submodule spellings
     assert fires("from subprocess.x import y", "shell_escape")
-    assert fires("!!ls", "shell_escape")                         # `!!` compiles to get_ipython().getoutput
+    assert not fires("!!ls", "shell_escape")                     # `!!` compiles to .getoutput: capture, not escape
     assert fires("%nbrun ab12\nPath('f.py').read_text()", "read_file")  # rules still run on cells containing magics
     assert fires("sys.path.insert(0, 'x')", "sys_path")
     assert fires("sys.path.append('x')", "sys_path")

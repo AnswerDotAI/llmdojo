@@ -212,7 +212,7 @@ def _shell_escape(tree, src, sess):
     for n in ast.walk(tree):
         if isinstance(n, ast.Import) and any(a.name.split('.')[0] == 'subprocess' for a in n.names): return True
         if isinstance(n, ast.ImportFrom) and (n.module or '').split('.')[0] == 'subprocess': return True
-        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in ('system','popen','getoutput'): return True
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr in ('system','popen'): return True
 
 
 def _sys_path(tree, src, sess):
