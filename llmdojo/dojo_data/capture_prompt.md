@@ -6,16 +6,17 @@ Run exactly the numbered cells below, in order, one per kernel call, with no ext
 
 1. `doc(clik, pysk, edsk)`
 2. `doc(dsk, exh, rgsk)`
-3. `list_pyskills()`
-4. `dojo_start()`
-5. `%cd <the run dir the card prints>`
-6. `# kata 1`
-7. `doc(find_msgs, view_dlg)`
-8. `view_dlg('nbs/01_api.ipynb')`
-9. `# kata 2`
-10. `doc(lnhashview_file, file_exhash)`
-11. `lnhashview_file('core.py')`
-12. This cell exactly:
+3. `doc(acp)`
+4. `list_pyskills()`
+5. `dojo_start()`
+6. `%cd <the run dir the card prints>`
+7. `# kata 1`
+8. `doc(find_msgs, view_dlg)`
+9. `view_dlg('nbs/01_api.ipynb')`
+10. `# kata 2`
+11. `doc(lnhashview_file, file_exhash)`
+12. `lnhashview_file('core.py')`
+13. This cell exactly:
 
 ```python
 file_exhash('core.py',
@@ -27,24 +28,24 @@ file_exhash('core.py',
 )
 ```
 
-13. `# kata 3`
-14. `lnhashview_file('tmpl.py')`
-15. A cell whose first line is `%%exhash tmpl.py 4|dad2|,13|913e| c` and whose remaining lines are the replacement function from kata 3's card, byte for byte.
-16. `# kata 4`
-17. `doc(cell_exhash)`
-18. `find_msgs(header_section='Retries', dlg='nbs/01_api.ipynb')`
-19. This cell exactly:
+14. `# kata 3`
+15. `lnhashview_file('tmpl.py')`
+16. A cell whose first line is `%%exhash tmpl.py 4|dad2|,13|913e| c` and whose remaining lines are the replacement function from kata 3's card, byte for byte.
+17. `# kata 4`
+18. `doc(cell_exhash)`
+19. `find_msgs(header_section='Retries', dlg='nbs/01_api.ipynb')`
+20. This cell exactly:
 
 ```python
 %%exhash nbs/01_api.ipynb d4f97726 % c
 On a connection error, `fetch_daily` retries the request twice more, making 3 attempts in all before giving up.
 ```
 
-20. `# kata 5`
-21. `import report`
-22. `doc(report.daily_report)`
-23. `report.daily_report(report.SAMPLE, style='rb2')`
-24. This cell exactly:
+21. `# kata 5`
+22. `import report`
+23. `doc(report.daily_report)`
+24. `report.daily_report(report.SAMPLE, style='rb2')`
+25. This cell exactly:
 
 ```python
 dojo_score(bash_calls=0,

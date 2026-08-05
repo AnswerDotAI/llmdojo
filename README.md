@@ -48,6 +48,8 @@ $ dojobuild
 
 Only a change to the round itself - its cells, not their outputs - needs a fresh capture: `claudedojo --capture` plays a scripted round headlessly, `codexdojo --capture` does the same in a Codex child, and `--current` on either stores a clean round an existing session already played. After reviewing a captured dialog, `dojobuild --claude` and `dojobuild --codex` compile it into each store without re-replaying.
 
+The bootstrap `doc()` reads (the cells before `dojo_start()`) live in two artifacts: `dojo_data/capture_prompt.md`, the script future captures replay, and the baked round in the canonical dialog itself. To change the set, update both, keeping each new `doc(x)` as its own cell placed after the `doc(clik, pysk, edsk)` one, then run `dojobuild`, which replays the new cell for a true output and recomputes the stored `doced` list. Updating only one leaves the demonstration and the capture script teaching different bootstraps.
+
 ### State and templates
 
 Doc-state records which tool documentation the agent has read for a conversation. Closing and resuming restores that record; compaction clears it because the corresponding documentation has left the model’s context. A warm-start template seeds both doc-state and its clean-round completion receipt before the agent resumes.
