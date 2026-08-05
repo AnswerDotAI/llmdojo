@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
 ]
-dependencies = ['fastcore>=2.1.10', 'clikernel>=0.1.7', 'llmsurgery>=0.0.8', 'aidialog>=0.0.5']
+dependencies = ['fastcore>=2.1.10', 'clikernel>=0.1.7', 'llmsurgery>=0.0.8', 'aidialog>=0.0.8']
 
 [project.urls]
 Repository = "https://github.com/AnswerDotAI/llmdojo"
