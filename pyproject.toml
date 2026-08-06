@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
 ]
-dependencies = ['fastcore>=2.1.10', 'clikernel>=0.2.0', 'llmsurgery>=0.0.8', 'aidialog>=0.0.8']
+dependencies = ['fastcore>=2.1.10', 'clikernel>=0.2.0', 'llmsurgery>=0.0.12', 'aidialog>=0.0.11']
 
 [project.optional-dependencies]
 dev = ['claude-agent-sdk']
