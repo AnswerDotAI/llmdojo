@@ -4,4 +4,4 @@ Modules:
 
 - `llmdojo.tmpl`: The template layer shared by claudedojo and codexdojo"""
 
-__version__ = "0.0.2"
+__version__ = "0.0.3"
