@@ -7,7 +7,7 @@ Docs: https://AnswerDotAI.github.io/llmdojo/codexdojo.html.md"""
 # %% auto #0
 __all__ = ['OPENING', 'SAMPLE_POLICY', 'TMPL_DIR', 'collapse_deferred', 'pick_calls', 'pick_turns', 'dojo_round', 'curate_dojo',
            'dojo_cid', 'is_clean', 'capture_current', 'capture_dojo', 'mk_template', 'dojo_sample', 'save_template',
-           'load_template', 'build_template', 'prep_dojo', 'append_dojo', 'compact_dojo', 'main']
+           'load_template', 'build_template', 'prep_dojo', 'append_dojo', 'strip_dojo', 'compact_dojo', 'main']
 
 # %% ../nbs/01_codexdojo.ipynb #db524999
 import asyncio, json, os, re, subprocess, sys, tempfile, uuid
@@ -19,7 +19,7 @@ from llmsurgery.compact import compact_chat
 from aidialog.ipynb import read_ipynb, write_ipynb
 from .rules import _state_root
 from .tmpl import *
-from .tmpl import _dojo_v, _seed_doced, _START_RE
+from .tmpl import _dojo_v, _seed_doced, _START_RE, _turns
 
 # %% ../nbs/01_codexdojo.ipynb #1f05a641
 def _items(src):
@@ -272,6 +272,22 @@ async def append_dojo(
     _seed_doced(sid,meta.get('doced') or [],merge=True)
     return sid
 
+# %% ../nbs/01_codexdojo.ipynb #c507e5da
+def _is_prompt(x): return x.get('type')=='message' and x.get('role')=='user'
+
+def _dealt(t): return any(re.match(_START_RE, _cell(x)) for x in t)
+
+def strip_dojo(
+    items, # Responses items in conversation order
+):
+    "Copy of `items` without the user turns that dealt a round (bare `dojo_start()`)"
+    return _turns(items, _is_prompt).filter(_dealt, negate=True).concat()
+
+def _strip(items):
+    "`strip_dojo`, unless nothing else would remain to compact"
+    s = strip_dojo(items)
+    return s if items2chat(s) else items
+
 # %% ../nbs/01_codexdojo.ipynb #3ca125e7
 async def compact_dojo(
     sid=None, # Thread id to compact; newest thread for the project if None
@@ -279,10 +295,10 @@ async def compact_dojo(
     d=None, # Template store dir; `TMPL_DIR` if None
     codex_home=None, # Alternate Codex home
 ):
-    "Synthetically compact a thread with the compact DSL, then append the template round; returns its id"
+    "Synthetically compact a thread with the compact DSL (previous dojo rounds removed first), then append the template round; returns its id"
     home = codex_home or CODEX_HOME
     sid,_ = resolve_thread(sid,home) if sid else project_thread(cwd or '.',home)
-    compact_session(sid,home)
+    compact_session(sid,home,strip=_strip)
     return await append_dojo(sid,cwd,d,codex_home)
 
 # %% ../nbs/01_codexdojo.ipynb #7844e48b

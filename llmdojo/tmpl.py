@@ -115,6 +115,16 @@ def capture_slice(
     if not scores: raise ValueError('no dojo_score() after dojo_start()')
     return boots[-1], scores[0]
 
+# %% ../nbs/02_tmpl.ipynb #8b3b1135
+def _turns(
+    xs, # Items or records in conversation order
+    isprompt, # Is this element a real user prompt?
+):
+    "`xs` split into user turns at each prompt (a leading group holds anything earlier)"
+    xs = L(xs)
+    edges = L([0, *xs.argwhere(isprompt), len(xs)])
+    return L(xs[s:e] for s,e in edges.pairwise())
+
 # %% ../nbs/02_tmpl.ipynb #c5988523
 def doced_names(
     cells, # Kernel cell sources

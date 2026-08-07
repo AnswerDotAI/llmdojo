@@ -7,7 +7,7 @@ Docs: https://AnswerDotAI.github.io/llmdojo/claudedojo.html.md"""
 # %% auto #0
 __all__ = ['DROP_ATT', 'OPENING', 'TMPL_DIR', 'capture_span', 'curate_dojo', 'dojo_cid', 'is_clean', 'mk_template',
            'save_template', 'load_template', 'build_template', 'capture_current', 'capture_dojo', 'prep_dojo',
-           'append_dojo', 'compact_dojo', 'main']
+           'append_dojo', 'strip_dojo', 'compact_dojo', 'main']
 
 # %% ../nbs/00_claudedojo.ipynb #8602c977
 import asyncio, json, os, re, shutil, sys, tempfile, uuid
@@ -19,7 +19,7 @@ from aidialog.ipynb import read_ipynb, write_ipynb
 from aidialog.hist import chat2dlg
 from .rules import _state_root
 from .tmpl import *
-from .tmpl import _dojo_v, _seed_doced
+from .tmpl import _dojo_v, _seed_doced, _START_RE, _turns
 
 # %% ../nbs/00_claudedojo.ipynb #0c09a7a3
 def _is_err(b): return b.get('type')=='tool_result' and b.get('is_error')
@@ -210,13 +210,27 @@ def append_dojo(
     _seed_doced(sid, meta.get('doced') or [], merge=True)   # merge: after a compact the hook truncated the record, so this is just the round's list
     return sid
 
+# %% ../nbs/00_claudedojo.ipynb #cff4225e
+def _is_prompt(r): return r.get('type')=='user' and rec_role(r)=='user'
+
+def _dealt(t): return any(re.match(_START_RE, nested_idx(b,'input','code') or '') for r in t for b in _blocks(r))
+
+def strip_dojo(
+    recs, # Session records, e.g. from `load_sess`
+):
+    "Copy of `recs` without the user turns that dealt a round (bare `dojo_start()`)"
+    return _turns(recs, _is_prompt).filter(_dealt, negate=True).concat()
+
 # %% ../nbs/00_claudedojo.ipynb #aa9b31fe
 def compact_dojo(
     sid=None, # Session id or name to compact; the project's newest transcript if None
     cwd=None, # Project directory; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
-    "Synthetically compact a session with the compact DSL, then append the template round; returns the session id"
+    "Synthetically compact a session with the compact DSL (previous dojo rounds removed first), then append the template round; returns the session id"
+    sid,_ = resolve_session(sid, cwd or '.')
+    recs = load_sess(sid, cwd)
+    if len(recs) > len(stripped := strip_dojo(recs)) > 0: save_sess(stripped, sid, cwd)   # a round-only session has nothing else to compact: leave it whole
     c = compact_session(sid, cwd or '.')
     return append_dojo(c.sid, cwd, d)
 
