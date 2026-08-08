@@ -1,6 +1,7 @@
 import re, pytest
+from fastcore.aio import run_sync
 from pathlib import Path
-from clikernel.core import render_outs as _stream_text
+from fastcore.nbio import render_text as _stream_text
 import llmdojo.dojo as dj
 
 
@@ -10,7 +11,7 @@ def test_dojo(tmp_path, monkeypatch):
     from execnb.shell import CaptureShell
     sh = CaptureShell()
     def run(code):
-        out = _stream_text(sh.run(code))
+        out = _stream_text(run_sync(sh.run(code)))
         assert not sh.exc, out
         return out
 
