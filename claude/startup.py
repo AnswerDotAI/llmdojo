@@ -1,6 +1,6 @@
 from fastcore.utils import *
 if Path('pyproject.toml').exists():
-    from pyskills import list_pyskills, doc
+    from pyskills import list_pyskills, doc, xdir
     from fastcore.editskill import *
     from aidialog.dlgskill import *
     from exhash.skill import *
