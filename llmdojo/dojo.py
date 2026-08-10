@@ -87,7 +87,7 @@ def _chk_report(d):
 
 KATAS = [
     dict(name='orient', par=1, files=['nbs/01_api.ipynb'], check=_chk_orient, ro=True,
-        route="find_msgs('httpx'): its context= defaults to 1, and the why lives in the note next to the import, past where one-line summaries truncate. view_dlg reads whole small notebooks fine too. nbrg's one-liners locate; they don't read",
+        route="find_msgs('httpx'): its context= defaults to 1, and the why lives in the note next to the import - a message the pattern doesn't even match, so no search row can surface it. view_dlg reads whole small notebooks fine too. rg and nbrg locate; neither is reading",
         prompt="Why does this project use httpx? Answer in prose via dojo_score(orient=\"...\"), including the specific justification the notebook gives. Tip: find_msgs' context= defaults to 1 for a reason - the why usually lives next to the what."),
     dict(name='edit set', par=2, files=['core.py'], check=_chk_core,
         route='lnhashview_file, then ONE file_exhash with each command tuple as a positional argument, worked bottom-to-top: the deletion shifts every line below it, and the hash checks catch top-down ordering loudly. s patterns are regexes: escape literal [ ] ( ) . or the call fails. rg(pattern, lnhashs=True) is an equal entry when you know what to hunt: hits arrive as edit-ready addresses, fusing locate and view',

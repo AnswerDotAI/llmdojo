@@ -2,7 +2,7 @@ Python project detected. Imports are loaded, including rg/fd/ls from rgapi. Doc-
     doc(clik, pysk, edsk)
     doc(dsk, exh, rgsk)
     doc(acp)
-Then run these as separate cells, in order (each ends with a bare expression: only a cell's last expression displays, and the reprs are tuned for reading):
     list_pyskills()
+Then run this:
     dojo_start()
 The dojo line is REQUIRED in every session, even ones that only read files or search directories: complete every task it prints before any other work. If a completion id from a clean round is in your context, dojo_start(id) replays it instantly.
