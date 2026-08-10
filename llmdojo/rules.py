@@ -230,7 +230,7 @@ RULES = [
     Rule('hashcalc', 'exhash addresses come only from a fresh lnhashview; never compute them.', _hashcalc),
     Rule('tuple_payload', 'Apply a/i/c payloads with the %%exhash magic: its payload needs no quoting or escaping.', _tuple_payload),
     Rule('s_newline', r'A 2-char \n in an s-replacement stays literal text: use a real newline in the string.', _s_newline),
-    Rule('s_long', 'An s-replacement over 120 chars rewrites the line: use a c command (%%exhash <addr> c) instead.', _s_long),
+    Rule('s_long', 'Use a c command (%%exhash <addr> c) for an s-replacement over 120 chars, except when the line is much longer still.', _s_long),
     Rule('postproc', "Show tooling results bare; narrow with the tool's own parameters.", _postproc),
     Rule('run_magic', 'Invoke magics directly with % syntax.', _run_magic, raw=True),
     Rule('piecemeal', 'Load skill modules whole: from <pkg>.skill import *, after doc(<pkg>.skill).', _piecemeal),

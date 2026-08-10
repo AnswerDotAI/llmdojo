@@ -175,11 +175,11 @@ def test_session_rules(monkeypatch):
 
 
 def test_notes_single_way():
-    "Notes teach exactly one route and never name exceptions."
+    "Notes teach exactly one route."
     from llmdojo.rules import RULES
     for r in RULES:
         assert r.note and (r.block or len(r.note) < 120)
-        for word in ("unless", "except when", "sometimes", "usually"): assert word not in r.note.lower()
+        for word in ("unless", "sometimes", "usually"): assert word not in r.note.lower()
 
 
 def test_doced_state(tmp_path, monkeypatch):

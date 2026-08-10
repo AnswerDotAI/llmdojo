@@ -248,6 +248,8 @@ def main(
     "Prepare and print the id of a Claude session opening with the worked round, for `claude -r $(claudedojo)`; template maintenance is `dojobuild`"
     if capture: asyncio.run(capture_dojo(model=model, effort=effort))
     elif current: capture_current(sess)
-    elif Resume: print(append_dojo(sess))
+    elif Resume:
+        try: print(append_dojo(sess))
+        except FileNotFoundError as e: sys.exit(f'{e}\nNo session to append to; to prepare a fresh one instead: claude -r $(claudedojo)')
     elif Compact: print(compact_dojo(sess))
     else: print(prep_dojo())
