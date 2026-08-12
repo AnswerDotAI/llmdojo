@@ -1,7 +1,7 @@
 """Best-practice detection rules shared by the live cell inspectors and the dojo scorer. Each note teaches exactly one route, since agents reproduce whatever patterns their context shows them.
 
 Doc-state persists per host conversation: if the conversation survived a kernel restart and the relevant `doc()` output is still visible, call `doced(name='key', ...)` — keys copied from each doc's `# doced:` line or bracketed summary key — to restore doc state without reprinting it. Declarations are verified against the live rendering, so a wrong or stale key is rejected. After context compaction, call `forget_doced()` and read the docs again."""
-import ast,importlib.util,json,os,re,sys,time,tokenize
+import ast,importlib.util,json,os,re,sys,time,tokenize,warnings
 from pathlib import Path
 from io import StringIO
 from fastcore.basics import store_attr
@@ -322,9 +322,8 @@ def doced(**names):
     bad = [nm for nm in names if nm not in ok]
     _LIVE.doced.update(ok)
     _save_doced(_LIVE)
-    res = f"recorded: {', '.join(ok)}" if ok else ''
-    if bad: res += f"\nkey mismatch (docs changed, or not truly in context) - read doc({', '.join(bad)}) instead"
-    return res.strip()
+    if bad: warnings.warn(f"key mismatch (docs changed, or not truly in context) - read doc({', '.join(bad)}) instead")
+    return f"recorded: {', '.join(ok)}" if ok else ''
 
 def forget_doced():
     "Reset the doc-state record (e.g. after context compaction): every tooling function needs a fresh doc(f) before its next use."

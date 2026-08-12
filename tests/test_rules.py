@@ -197,9 +197,11 @@ def test_doced_state(tmp_path, monkeypatch):
     assert 'rg' in cr._LIVE.doced                   # state survived the restart
     import rgapi.skill
     from pyskills import doc_key
-    fd,ls = rgapi.skill.fd, rgapi.skill.ls
+    fd,ls,rg = rgapi.skill.fd, rgapi.skill.ls, rgapi.skill.rg
     assert 'recorded: fd' in cr.doced(fd=doc_key(fd))   # a right key is recorded
-    assert 'key mismatch' in cr.doced(ls='0000')        # a wrong key is rejected, not recorded
+    import pytest
+    with pytest.warns(UserWarning, match='key mismatch'):
+        assert not cr.doced(ls='0000')                  # a wrong key is rejected loudly, not recorded
     cr.make_inspector()
     assert {'rg','fd'} <= set(cr.doced()) and 'ls' not in cr.doced()
     cr.forget_doced()
