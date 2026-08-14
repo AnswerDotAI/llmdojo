@@ -193,8 +193,12 @@ def _hollow_doc(tree, src, sess): return bool(_hollow_docs(tree))
 
 def _nodoc(tree, src, sess):
     hollow = set(_hollow_docs(tree))               # a doc() that can't display reads nothing: no credit
-    for c in _calls(tree):                          # record displayed doc() reads; doced() records at runtime, key-verified
+    for c in _calls(tree):                          # record displayed doc() reads and key-verified doced() declarations
         if _callee(c) == 'doc' and c not in hollow: sess.doced.update(x for a in c.args for x in _docnames(ast.unparse(a)))
+        elif _callee(c) == 'doced' and c.keywords:
+            from pyskills import doc_key
+            sess.doced.update(k.arg for k in c.keywords if k.arg and isinstance(k.value, ast.Constant)
+                and callable(sess.ns.get(k.arg)) and doc_key(sess.ns[k.arg]) == k.value.value)
     for n in ast.walk(tree):                        # doc(f) looped over literal names docs each element
         if isinstance(n, (ast.For, ast.ListComp, ast.SetComp, ast.GeneratorExp)):
             g = n if isinstance(n, ast.For) else n.generators[0]

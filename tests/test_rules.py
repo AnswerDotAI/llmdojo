@@ -157,6 +157,13 @@ def test_session_rules(monkeypatch):
     assert fires("for f in (rg, fd): doc(f)", "hollow_doc", s13)
     assert fires("rg('x', '.')", "nodoc", s13)
 
+    # doced(f='key') in the same cell as the use: correct key credits at scan time, wrong key doesn't
+    from pyskills import doc_key
+    s14 = Session(ns={"rg": rgapi.skill.rg})
+    assert not fires(f"doced(rg='{doc_key(rgapi.skill.rg)}'); rg('x', '.')", "nodoc", s14)
+    s15 = Session(ns={"rg": rgapi.skill.rg})
+    assert fires("doced(rg='0000'); rg('x', '.')", "nodoc", s15)
+
     # re-nag: findings repeat on every offending cell until the habit is fixed
     s4 = Session()
     assert fires("Path('a.py').read_text()", "read_file", s4)
