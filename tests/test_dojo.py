@@ -24,8 +24,8 @@ def test_dojo(tmp_path, monkeypatch):
     assert "not wrapped in print" in card.lower()           # free-cell rule says bare doc() calls only
     assert "early version" in card.lower()                  # card asks for imperfection reports
     assert "clean score" in card and "ascending order" in card  # completion gate + redo order spelled out
-    hostile = dj._TMPL_PAYLOAD                               # kata 3 payload defeats every Python literal form
-    assert "'"*3 in hostile and '"'*3 in hostile and '\\' in hostile and '\n' in hostile
+    tricky = dj._TMPL_PAYLOAD                               # kata 3 payload defeats every Python literal form
+    assert "'"*3 in tricky and '"'*3 in tricky and '\\' in tricky and '\n' in tricky
     d = dj._RUN['dir']
     assert d == tmp_path/'dojo'/'run'                        # one fixed path: receipts are deterministic, so captures and replays need no normalization
     assert (d/'core.py').exists() and (d/'nbs'/'01_api.ipynb').exists() and (d/'report.py').exists()
@@ -44,7 +44,7 @@ def test_dojo(tmp_path, monkeypatch):
     assert "kata 'edit set'" in out and "par route" in out  # unedited files: fails, with the route shown
     assert "kata 'orient': no answer passed" in out and dj.KATAS[0]['route'] in out  # ungraded orient fails, route shown
     assert "kata 'doc first': no answer passed" in out       # kata 5 is graded via dojo_score(report=...)
-    assert 'rb-3254' not in out and 'RB7' not in out         # a failed score never leaks the answers
+    assert 'pooling' not in out and 'WX7' not in out         # a failed score never leaks the answers
     assert "early version" in out.lower()                   # scorer asks for imperfection reports
     assert "per-kata scoring" in out                        # no tags yet: gentle how-to nudge, old kata format kept
     assert dj._RUN                                          # not a clean round: run dir kept
@@ -67,7 +67,7 @@ def test_dojo(tmp_path, monkeypatch):
     out = run(f"dojo_score(bash_calls=1, orient={decoy!r})")
     assert "strokes 7 + doc penalties 0" in out and "habit miss" not in out # doc-fix forgiven on rescore
     assert "justification" in out                                           # guessed prose rejected: the token is missing
-    half = "policy rb-3254 requires this client"
+    half = "it does no connection pooling on its own"
     out = run(f"dojo_score(bash_calls=1, orient={half!r})")
     assert "chosen over" in out                                             # names the missing half: the requests comparison
 
@@ -81,13 +81,13 @@ def test_dojo(tmp_path, monkeypatch):
     run("v = 9")                                            # 1 stroke -> kata 3
     run("v2 = 8")                                           # 1 stroke -> kata 3
     run("v3 = 7")                                           # 1 stroke -> kata 3: now over par
-    ans = "httpx replaces requests here because policy rb-3254 forbids requests in prod"
-    tok = f"RB{2*3517}"                                     # computed like the kata does: never literal in any source
+    ans = "httpx replaces requests here because requests does no connection pooling on its own"
+    tok = f"WX{2*3517}"                                     # computed like the kata does: never literal in any source
     out = run(f"dojo_score(bash_calls=1, orient={ans!r})")
     assert "strokes 12" in out                                          # 10 cell strokes + 2*bash
     assert "kata 'orient' (strokes 0, par 1): ok" in out                # graded answer, no strokes tagged 1
     assert "kata 'edit set' (strokes 2, par 2)" in out
-    assert "kata 'hostile replace' (strokes 3, par 2, +1 over)" in out  # per-kata over-par surfaced
+    assert "kata 'awkward replace' (strokes 3, par 2, +1 over)" in out  # per-kata over-par surfaced
     assert "dojo_redo(3)" in out                                        # ...with the retry hint
     assert "looked like tags but aren't" in out and 'kata 2 done' in out  # near-miss narration flagged, quoted
     assert "'# kata 99'" in out                                         # ...as is the invalid number
@@ -98,7 +98,7 @@ def test_dojo(tmp_path, monkeypatch):
     assert "verbatim: ..." in out                           # reset banner shows the prompt's whole first line, elision marked
     out = run(f"dojo_score(bash_calls=1, orient={ans!r})")
     assert "strokes 9" in out                               # kata 3's three strokes cleared from the ledger
-    assert "kata 'hostile replace' (strokes 0, par 2)" in out
+    assert "kata 'awkward replace' (strokes 0, par 2)" in out
 
     out = run("dojo_redo(0)")                               # untagged protocol mistakes: recoverable without a fresh round
     assert "untagged" in out.lower()
@@ -138,7 +138,7 @@ def test_dojo(tmp_path, monkeypatch):
     run(f"%cd {d2}")                                        # free: chdir cells cost nothing
     out = run(f"dojo_score(orient={ans!r}, report={tok!r})")   # under-par round total: clean, despite the kata-3 overspend
     assert "Clean round" in out and "cwd restored" in out and "Completion id:" in out and "compaction" in out
-    assert "kata 'hostile replace' (strokes 3, par 2, +1 over)" in out  # over-par kata, under-par round
+    assert "kata 'awkward replace' (strokes 3, par 2, +1 over)" in out  # over-par kata, under-par round
     assert "over-par katas" not in out and "dojo_redo(" not in out       # clean round: no contradictory redo demand
     cid = re.search(r"Completion id: ([0-9a-f]{4})", out)[1]
     assert "Kernel namespace cleared" not in out
@@ -208,11 +208,11 @@ def test_chk_core(tmp_path):
 
 def test_chk_orient():
     "Facts-only grading: the unguessable token proves the neighbor cell was actually rendered."
-    dj._RUN['orient'] = 'httpx replaces requests here: policy rb-3254 forbids requests in prod'
+    dj._RUN['orient'] = 'httpx replaces requests here: requests has no connection pooling'
     assert dj._chk_orient(None) == []
     dj._RUN['orient'] = 'requests has no async support so this async-friendly client is used'  # plausible, tokenless
     assert any('justification' in m for m in dj._chk_orient(None))
-    dj._RUN['orient'] = 'policy rb-3254 mandates this http client'
+    dj._RUN['orient'] = 'connection pooling comes for free with this client'
     assert any('chosen over' in m for m in dj._chk_orient(None))
     dj._RUN.clear()
 
@@ -222,9 +222,9 @@ def test_orient_answer_buried():
     import json
     from importlib.resources import files
     nb = json.loads((files('llmdojo')/'dojo_data'/'proj'/'nbs'/'01_api.ipynb').read_text())
-    cell = next(c for c in nb['cells'] if 'rb-3254' in ''.join(c['source']))
+    cell = next(c for c in nb['cells'] if 'pooling' in ''.join(c['source']))
     src = ''.join(cell['source'])
-    assert cell['cell_type'] == 'markdown' and 'httpx' not in src and 'rb-3254' not in src[:120]
+    assert cell['cell_type'] == 'markdown' and 'httpx' not in src and 'pooling' not in src[:120]
 
 
 def test_report_kata(tmp_path):
@@ -232,13 +232,13 @@ def test_report_kata(tmp_path):
     import importlib.util
     from importlib.resources import files
     p = files('llmdojo')/'dojo_data'/'proj'/'report.py'
-    assert 'RB7' not in p.read_text()                        # the token is computed, never literal
+    assert 'WX7' not in p.read_text()                        # the token is computed, never literal
     spec = importlib.util.spec_from_file_location('dojo_report', p)
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
-    out = m.daily_report(m.SAMPLE, style='rb2')
-    assert out.splitlines()[0] == f'RB{2*3517}'
-    assert f'RB{2*3517}' not in m.daily_report(m.SAMPLE)     # the guessed default call scores nothing
+    out = m.daily_report(m.SAMPLE, style='tagged')
+    assert out.splitlines()[0] == f'WX{2*3517}'
+    assert f'WX{2*3517}' not in m.daily_report(m.SAMPLE)     # the guessed default call scores nothing
     dj._RUN['report'] = out.splitlines()[0]
     assert dj._chk_report(None) == []
     dj._RUN['report'] = 'RB-2 format report'

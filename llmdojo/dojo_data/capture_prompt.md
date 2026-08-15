@@ -44,13 +44,13 @@ On a connection error, `fetch_daily` retries the request twice more, making 3 at
 21. `# kata 5`
 22. `import report`
 23. `doc(report.daily_report)`
-24. `report.daily_report(report.SAMPLE, style='rb2')`
+24. `report.daily_report(report.SAMPLE, style='tagged')`
 25. This cell exactly:
 
 ```python
 dojo_score(bash_calls=0,
-    orient="The notebook avoids requests because it has no async support and its connection pooling needs hand-managed Session objects, and policy rb-3254 forbids requests in prod code; httpx keeps the requests-style API while fixing both.",
-    report="RB7034")
+    orient="httpx was chosen over requests. requests has no async support, and it does no connection pooling on its own. httpx keeps the same API shape and provides both.",
+    report="WX7034")
 ```
 
 When the score is clean, reply exactly `OK I'm ready.` and stop. Do not call `dojo_redo` or `dojo_resume`.
