@@ -1,6 +1,6 @@
 """Best-practice detection rules shared by the live cell inspectors and the dojo scorer. Each note teaches exactly one route, since agents reproduce whatever patterns their context shows them.
 
-Doc-state persists per host conversation: if the conversation survived a kernel restart and the relevant `doc()` output is still visible, call `doced(name='key', ...)` — keys copied from each doc's `# doced:` line or bracketed summary key — to restore doc state without reprinting it. Declarations are verified against the live rendering, so a wrong or stale key is rejected. After context compaction, call `forget_doced()` and read the docs again."""
+Doc-state persists per host conversation in a state file reloaded every cell, so kernel restarts lose nothing. Context compaction is what invalidates it: the compaction hooks reset the record for reads made before the boundary, whose doc() output left the context, and `forget_doced(before)` keeps a record written since. When a note fires for docs still visible verbatim (e.g. in the preserved tail after a compaction), call `doced(name='key', ...)` — keys copied from each doc's `# doced:` line or bracketed summary key — to restore the record without reprinting. Declarations are verified against the live rendering, so a wrong or stale key is rejected."""
 import ast,importlib.util,json,os,re,sys,time,tokenize,warnings
 from pathlib import Path
 from io import StringIO
@@ -273,16 +273,16 @@ _LIVE = None
 _HOST = None
 
 def _resolve_host():
-    "The stable host conversation id: Codex supplies it directly; Claude's newest project transcript survives worker restarts and resumes"
-    if (cid := os.environ.get('CODEX_THREAD_ID')): return cid
+    "The stable host conversation id: the host supplies it directly where it can; when only the project dir is known, the newest project transcript stands in"
+    if (cid := os.environ.get('CODEX_THREAD_ID') or os.environ.get('CLAUDE_CODE_SESSION_ID')): return cid
     if (pd := os.environ.get('CLAUDE_PROJECT_DIR')):
         d = Path.home()/'.claude'/'projects'/re.sub(r'[^A-Za-z0-9]', '-', pd)
         try: return max(d.glob('*.jsonl'), key=lambda p: p.stat().st_mtime).stem
         except ValueError: pass
-    return os.environ.get('CLAUDE_CODE_SESSION_ID') or os.getppid()
+    return os.getppid()
 
 def _host_session():
-    "Resolved once per worker: at spawn, the spawning conversation's transcript is the freshest"
+    "Resolved once per worker and cached: the id is stable for the worker's life"
     global _HOST
     if _HOST is None: _HOST = _resolve_host()
     return _HOST
@@ -329,10 +329,13 @@ def doced(**names):
     if bad: warnings.warn(f"key mismatch (docs changed, or not truly in context) - read doc({', '.join(bad)}) instead")
     return f"recorded: {', '.join(ok)}" if ok else ''
 
-def forget_doced():
-    "Reset the doc-state record (e.g. after context compaction): every tooling function needs a fresh doc(f) before its next use."
+def forget_doced(before=None):
+    "Reset the doc-state record (e.g. after context compaction): every tooling function needs a fresh doc(f) before its next use. With `before` (an epoch time), a record written after it survives: those reads happened since the compact, so their docs are still in context."
     global _LIVE
     if _LIVE is None: _LIVE = Session()
+    if before:
+        f = _doced_file()
+        if f.exists() and f.stat().st_mtime > before: return
     _LIVE.doced.clear()
     _save_doced(_LIVE)
 

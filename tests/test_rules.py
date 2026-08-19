@@ -255,3 +255,18 @@ def test_note_tag(tmp_path, monkeypatch):
     assert 'doc(rg)' in insp(None, "rg('z', '.')")   # reloaded per cell: nodoc re-fires
     out = insp(None, "Path('a.py').read_text()")
     assert out.startswith('<note>') and '</note>' in out
+
+
+def test_resolve_host_prefers_sid(tmp_path, monkeypatch):
+    from pathlib import Path
+    from llmdojo.rules import _resolve_host
+    monkeypatch.delenv('CODEX_THREAD_ID', raising=False)
+    monkeypatch.setenv('CLAUDE_CODE_SESSION_ID', 'mysid')
+    monkeypatch.setenv('CLAUDE_PROJECT_DIR', '/proj/x')
+    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
+    d = tmp_path/'.claude'/'projects'/'-proj-x'
+    d.mkdir(parents=True)
+    (d/'othersid.jsonl').write_text('{}\n')
+    assert _resolve_host() == 'mysid'        # the launching session's id, not whichever session wrote the project transcript last
+    monkeypatch.delenv('CLAUDE_CODE_SESSION_ID')
+    assert _resolve_host() == 'othersid'     # fallback when only the project dir is known: newest transcript
