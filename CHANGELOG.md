@@ -2,6 +2,22 @@
 
 <!-- do not remove -->
 
+## 0.0.3
+
+### New Features
+
+- Launchers exec claude/codex directly with config-file args instead of printing session ids; forward extra flags ([#20](https://github.com/AnswerDotAI/llmdojo/issues/20))
+- rules: credit key-verified doced() declarations in the same cell, so nodoc no longer fires when a doc key is provided ([#19](https://github.com/AnswerDotAI/llmdojo/issues/19))
+- rules: doced() now warns on key mismatch instead of returning it in the result string ([#18](https://github.com/AnswerDotAI/llmdojo/issues/18))
+- Clarify orient kata routing hint and startup instructions; simplify dojo test to call sh.run directly without `run_sync` ([#17](https://github.com/AnswerDotAI/llmdojo/issues/17))
+- llmdojo: friendly error when resuming with no session; relax `s_long` rule to allow long s-replacements; drop receipt expiry note ([#16](https://github.com/AnswerDotAI/llmdojo/issues/16))
+- Suggest no-args form when  has no session to append to ([#7](https://github.com/AnswerDotAI/llmdojo/pull/7)), thanks to [@ncoop57](https://github.com/ncoop57)
+
+### Bugs Squashed
+
+- prefer `CLAUDE_CODE_SESSION_ID` for host id, add `forget_doced`(before) so post-compaction doc reads survive ([#21](https://github.com/AnswerDotAI/llmdojo/issues/21))
+
+
 ## 0.0.2
 
 ### New Features
