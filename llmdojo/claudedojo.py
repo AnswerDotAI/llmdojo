@@ -235,21 +235,26 @@ def compact_dojo(
     return append_dojo(c.sid, cwd, d)
 
 # %% ../nbs/00_claudedojo.ipynb #29c39ffd
-@call_parse(pos=['sess'])
+@call_parse(nested=True, pos=['sess'])
 def main(
     sess:str=None, # Session id or name; the project's newest transcript where omitted
-    Resume:bool=False, # Append the round to an existing session after a compaction, printing its id: claude -r $(claudedojo -r)
-    Compact:bool=False, # Synthetically compact the session with the compact DSL, then append the round: claude -r $(claudedojo -c)
+    Resume:bool=False, # Append the round to an existing session after a compaction, then resume it
+    Compact:bool=False, # Synthetically compact the session with the compact DSL, then append the round and resume
+    sid:bool=False, # Print the prepared session id instead of launching claude
     capture:bool=False, # Play a scripted round headlessly (Agent SDK), gate it with is_clean, and store it
     current:bool=False, # Store the clean round an existing session already played (`capture_current`)
-    model:str='fable', # Model for --capture; the only one smart enough for clean rounds
-    effort:str='medium', # Adaptive thinking effort for --capture ('low'/'medium'/'high')
+    capture_model:str='fable', # Model for --capture; the only one smart enough for clean rounds
+    capture_effort:str='medium', # Adaptive thinking effort for --capture ('low'/'medium'/'high')
 ):
-    "Prepare and print the id of a Claude session opening with the worked round, for `claude -r $(claudedojo)`; template maintenance is `dojobuild`"
-    if capture: asyncio.run(capture_dojo(model=model, effort=effort))
-    elif current: capture_current(sess)
-    elif Resume:
-        try: print(append_dojo(sess))
-        except FileNotFoundError as e: sys.exit(f'{e}\nNo session to append to; to prepare a fresh one instead: claude -r $(claudedojo)')
-    elif Compact: print(compact_dojo(sess))
-    else: print(prep_dojo())
+    "Prepare a session opening with the worked round and launch `claude` on it; template maintenance is `dojobuild`"
+    if capture: return asyncio.run(capture_dojo(model=capture_model, effort=capture_effort))
+    if current: return capture_current(sess)
+    if Resume:
+        try: s = append_dojo(sess)
+        except FileNotFoundError as e: sys.exit(f'{e}\nNo session to append to; run claudedojo without -r to prepare a fresh one')
+    elif Compact: s = compact_dojo(sess)
+    else:
+        if sess: sys.exit(f"unexpected argument {sess!r}: a fresh launch takes no session, and claude flag values need --flag=value form")
+        s = prep_dojo()
+    if sid: return print(s)
+    os.execvp('claude', ['claude', *launch_config('claude'), '-r', s, *sys.argv[1:]])

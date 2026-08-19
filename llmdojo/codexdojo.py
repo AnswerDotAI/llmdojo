@@ -302,17 +302,22 @@ async def compact_dojo(
     return await append_dojo(sid,cwd,d,codex_home)
 
 # %% ../nbs/01_codexdojo.ipynb #7844e48b
-@call_parse(pos=['sess'])
+@call_parse(nested=True, pos=['sess'])
 def main(
     sess:str=None, # Thread id; the project's newest where omitted
-    Resume:bool=False, # Append the round to an existing thread after compaction, printing its id: codex resume $(codexdojo -r)
-    Compact:bool=False, # Synthetically compact the thread with the compact DSL, then append the round: codex resume $(codexdojo -c)
+    Resume:bool=False, # Append the round to an existing thread after compaction, then resume it
+    Compact:bool=False, # Synthetically compact the thread with the compact DSL, then append the round and resume
+    sid:bool=False, # Print the prepared thread id instead of launching codex
     capture:bool=False, # Run a clean round in a bare Codex child and store it
     current:bool=False, # Store the clean round an existing thread already played (`capture_current`)
 ):
-    "Prepare and print the id of a Codex thread opening with the worked round, for `codex resume $(codexdojo)`; template maintenance is `dojobuild`"
-    if capture: capture_dojo()
-    elif current: capture_current(sess)
-    elif Resume: print(asyncio.run(append_dojo(sess)))
-    elif Compact: print(asyncio.run(compact_dojo(sess)))
-    else: print(asyncio.run(prep_dojo()))
+    "Prepare a Codex thread opening with the worked round and launch `codex resume` on it; template maintenance is `dojobuild`"
+    if capture: return capture_dojo()
+    if current: return capture_current(sess)
+    if Resume: s = asyncio.run(append_dojo(sess))
+    elif Compact: s = asyncio.run(compact_dojo(sess))
+    else:
+        if sess: sys.exit(f"unexpected argument {sess!r}: a fresh launch takes no thread, and codex flag values need --flag=value form")
+        s = asyncio.run(prep_dojo())
+    if sid: return print(s)
+    os.execvp('codex', ['codex', 'resume', s, *launch_config('codex'), *sys.argv[1:]])

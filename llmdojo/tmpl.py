@@ -8,10 +8,11 @@ Docs: https://AnswerDotAI.github.io/llmdojo/tmpl.html.md"""
 
 # %% auto #0
 __all__ = ['TMPL_PROMPT', 'APPEND_PROMPT', 'GATE_FORBID', 'CAPTURE_SCRIPT', 'DOJO_CANON', 'find_cid', 'save_store', 'load_store',
-           'load_reg', 'round_gates', 'capture_slice', 'doced_names', 'canon_tmpl', 'refresh_template', 'main']
+           'load_reg', 'round_gates', 'capture_slice', 'doced_names', 'canon_tmpl', 'refresh_template', 'launch_config',
+           'main']
 
 # %% ../nbs/02_tmpl.ipynb #5d058b1b
-import json, os, re, subprocess, sys, tempfile
+import json, os, re, subprocess, sys, tempfile, tomllib
 from importlib.resources import files
 from fastcore.utils import *
 from fastcore.script import call_parse
@@ -201,6 +202,16 @@ def refresh_template(
     dlg.meta['llmdojo'] = dict(doced=doced_names(cells))
     write_ipynb(dlg, str(dst or src))
     return dlg
+
+# %% ../nbs/02_tmpl.ipynb #c181ac72
+def launch_config(
+    app, # Host tool name ('claude' or 'codex'): config at `$XDG_CONFIG_HOME/<app>dojo/config.toml`
+    cfg=None, # Config file path, overriding the `app` default
+):
+    "Extra `app` args from the config file's `<app>_args` list, each `~`-expanded"
+    if cfg is None: cfg = Path(os.environ.get('XDG_CONFIG_HOME') or '~/.config').expanduser()/f'{app}dojo'/'config.toml'
+    if not Path(cfg).exists(): return []
+    return [os.path.expanduser(o) for o in tomllib.loads(Path(cfg).read_text()).get(f'{app}_args', [])]
 
 # %% ../nbs/02_tmpl.ipynb #b31d935a
 @call_parse(pos=['dialog'])

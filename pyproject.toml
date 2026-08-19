@@ -7,7 +7,7 @@ name = "llmdojo"
 dynamic = ["version"]
 description = "Scored tooling katas, habit rules, and pre-baked warm-start sessions for LLM coding agents"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
 authors = [{name = "Jeremy Howard", email = "info@fast.ai"}]
 keywords = ['nbdev']

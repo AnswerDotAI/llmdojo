@@ -24,18 +24,18 @@ Activation is two lines of clikernel user config: register the rules in `$XDG_CO
 
 `dojo_start()` deals a scored practice round inside a clikernel session. Pass the completion id from a clean round to skip replaying it while that receipt remains valid.
 
-Claude Code and Codex can start with a reviewed round already in their history. Each launcher prepares a warm-start conversation and prints its id, so any further agent flags compose on the outside:
+Claude Code and Codex can start with a reviewed round already in their history. Each launcher prepares a warm-start conversation and runs its tool on it: standing arguments such as system-prompt files come from the `claude_args`/`codex_args` list in `$XDG_CONFIG_HOME/claudedojo/config.toml` or `$XDG_CONFIG_HOME/codexdojo/config.toml`, unrecognized flags are forwarded (values in `--flag=value` form), and `--sid` prints the prepared id instead of launching:
 
 ``` sh
-$ claude -r $(claudedojo)
-$ codex resume $(codexdojo)
+$ claudedojo
+$ codexdojo
 ```
 
-After compaction, `-r` appends the worked round to the existing conversation instead of preparing a fresh one:
+After compaction, `-r` appends the worked round to the existing conversation instead of preparing a fresh one, and `-c` compacts the conversation offline first:
 
 ``` sh
-$ claude -r $(claudedojo -r)
-$ codex resume $(codexdojo -r)
+$ claudedojo -r
+$ codexdojo -r
 ```
 
 ### Update the templates
