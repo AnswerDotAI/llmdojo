@@ -18,7 +18,7 @@ LLM coding agents imitate what their context shows far more reliably than what i
 $ pip install llmdojo
 ```
 
-Activation is two lines of clikernel user config: register the rules in `$XDG_CONFIG_HOME/clikernel/inspectors.py` (`from llmdojo.rules import make_inspector, RuleBlock; inspectors = [make_inspector()]`), and have your startup file print the bootstrap instructions that tell the agent to run the dojo.
+Activation is two lines of clikernel user config: register the rules in `$XDG_CONFIG_HOME/clikernel/inspectors.py` (`from llmdojo.rules import make_inspector, RuleBlock; inspectors = [make_inspector()]`), and have your startup file print the bootstrap instructions that tell the agent to run the dojo. For ipyai, link `ipyai/startup.py` into `~/.config/ipyai/` (see `ipyai/README.md`): its kernels then carry the same imports, and `ipyaidojo` launches sessions with the round already in history.
 
 ### Start a session
 
@@ -38,17 +38,23 @@ $ claudedojo -r
 $ codexdojo -r
 ```
 
+ipyai starts warm the same way. `ipyaidojo` writes the round as an ipyai session of the current directory and runs `ipyai -r` on it (standing arguments from `ipyai_args` in `$XDG_CONFIG_HOME/ipyaidojo/config.toml`, `--sid` prints the id). Its kernels get the round’s imports from `~/.config/ipyai/startup.py`, see `ipyai/README.md`:
+
+``` sh
+$ ipyaidojo
+```
+
 ### Update the templates
 
-The templates ship inside the package - the canonical dialog plus the compiled per-host stores - so *using* fresh templates takes no action beyond updating llmdojo. Maintaining them is one command: when tooling docs or skills change, the baked round’s outputs go stale, and `dojobuild` regenerates them with no model spend - it replays the round’s cells through a fresh kernel, splices the current outputs into the canonical template dialog, and recompiles both stores, all in your checkout for review:
+The templates ship inside the package - the canonical dialog plus the compiled per-host stores - so *using* fresh templates takes no action beyond updating llmdojo. Maintaining them is one command: when tooling docs or skills change, the baked round’s outputs go stale, and `dojobuild` regenerates them with no model spend - it replays the round’s cells through a fresh kernel, splices the current outputs into the canonical template dialog, and recompiles every store, all in your checkout for review (the ipyai store is its own replay of the round through ipyai’s `py`, so `dojobuild` needs ipyai installed and a running rustygate):
 
 ``` sh
 $ dojobuild
 ```
 
-Only a change to the round itself - its cells, not their outputs - needs a fresh capture: `claudedojo --capture` plays a scripted round headlessly, `codexdojo --capture` does the same in a Codex child, and `--current` on either stores a clean round an existing session already played. After reviewing a captured dialog, `dojobuild --claude` and `dojobuild --codex` compile it into each store without re-replaying.
+Only a change to the round itself - its cells, not their outputs - needs a fresh capture: `claudedojo --capture` plays a scripted round headlessly, `codexdojo --capture` does the same in a Codex child, and `--current` on either stores a clean round an existing session already played. After reviewing a captured dialog, `dojobuild --claude` and `dojobuild --codex` compile it into each store without re-replaying, and `dojobuild --ipyai` replays it through ipyai alone.
 
-The bootstrap `doc()` reads (the cells before `dojo_start()`) live in two artifacts: `dojo_data/capture_prompt.md`, the script future captures replay, and the baked round in the canonical dialog itself. To change the set, update both, keeping each new `doc(x)` as its own cell placed after the `doc(clik, pysk, edsk)` one, then run `dojobuild`, which replays the new cell for a true output and recomputes the stored `doced` list. Updating only one leaves the demonstration and the capture script teaching different bootstraps.
+The bootstrap `doc()` reads (the cells before `dojo_start()`) live in two artifacts: `dojo_data/capture_prompt.md`, the script future captures replay, and the baked round in the canonical dialog itself. To change the set, update both, keeping each new `doc(x)` as its own cell placed after the `doc(clik, pysk, edsk)` one, then run `dojobuild`, which replays the new cell for a true output and recomputes the stored `doced` list. Updating only one leaves the demonstration and the capture script teaching different bootstraps. The ipyai round swaps that first cell for `doc(pysk, edsk)` on its own, since ipyai has no `clik`.
 
 ### State and templates
 

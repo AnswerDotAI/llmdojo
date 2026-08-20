@@ -12,7 +12,7 @@ __all__ = ['TMPL_PROMPT', 'APPEND_PROMPT', 'GATE_FORBID', 'CAPTURE_SCRIPT', 'DOJ
            'main']
 
 # %% ../nbs/02_tmpl.ipynb #5d058b1b
-import json, os, re, subprocess, sys, tempfile, tomllib
+import asyncio, json, os, re, subprocess, sys, tempfile, tomllib
 from importlib.resources import files
 from fastcore.utils import *
 from fastcore.script import call_parse
@@ -110,7 +110,7 @@ def capture_slice(
     starts = [i for i,c in enumerate(cells) if re.match(_START_RE, c)]
     if not starts: raise ValueError('no dojo_start() call')
     start = starts[-1]
-    boots = [i for i,c in enumerate(cells[:start]) if re.match(r'^doc\(clik,\s*pysk,\s*edsk\)\s*$', c)]
+    boots = [i for i,c in enumerate(cells[:start]) if re.match(r'^doc\((\w+,\s*)?pysk,\s*edsk\)\s*$', c)]   # the host's own skill module may lead (clik on clikernel hosts)
     if not boots: raise ValueError('no bootstrap doc call before dojo_start()')
     scores = [i for i,c in enumerate(cells[start:], start) if re.match(r'^dojo_score\(', c)]
     if not scores: raise ValueError('no dojo_score() after dojo_start()')
@@ -219,16 +219,19 @@ def main(
     dialog:str=None, # Template dialog path; the packaged dojo_data/dojo_template.ipynb where omitted
     claude:bool=False, # Build only the Claude store from the dialog, without refreshing
     codex:bool=False, # Build only the Codex store, without refreshing
+    ipyai:bool=False, # Build only the ipyai store (the round replayed through ipyai's `py`), without refreshing
 ):
-    "Refresh the canonical template dialog (replaying its cells through a fresh clikernel), then build both stores"
+    "Refresh the canonical template dialog (replaying its cells through a fresh clikernel), then build every store"
     src = dialog or files('llmdojo')/'dojo_data'/'dojo_template.ipynb'
-    from llmdojo import claudedojo, codexdojo
-    if not (claude or codex):
+    from llmdojo import claudedojo, codexdojo, ipyaidojo
+    builds = dict(claude=claudedojo, codex=codexdojo, ipyai=ipyaidojo)
+    flags = dict(claude=claude, codex=codex, ipyai=ipyai)
+    only = [n for n,f in flags.items() if f]
+    if not only:
         refresh_template(src)
         print(f'refreshed: {src}')
-    if not codex:
-        claudedojo.build_template(src)
-        print(f'built: claude store ({claudedojo.TMPL_DIR})')
-    if not claude:
-        codexdojo.build_template(src)
-        print(f'built: codex store ({codexdojo.TMPL_DIR})')
+    for n in only or builds:
+        b = builds[n]
+        r = b.build_template(src)
+        if n == 'ipyai': asyncio.run(r)   # the ipyai replay is async (it drives a live kernel through ipyai's own client)
+        print(f'built: {n} store ({b.TMPL_DIR})')
