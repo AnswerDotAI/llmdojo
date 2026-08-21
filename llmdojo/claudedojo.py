@@ -15,7 +15,7 @@ from importlib.resources import files
 from fastcore.utils import *
 from fastcore.script import call_parse
 from llmsurgery.ant import *
-from aidialog.ipynb import read_ipynb, write_ipynb
+from aidialog.ipynb import write_ipynb
 from aidialog.hist import chat2dlg
 from .rules import _state_root
 from .tmpl import *
@@ -38,10 +38,10 @@ DROP_ATT = ('hook_success', 'task_reminder')
 def capture_span(
     recs, # Session records, e.g. from `load_sess`
 ):
-    "The thread records of the captured round: bootstrap docs through the first score of the last dealt round"
+    "The thread records of the captured dialog: bootstrap reads through the first score of the last dealt round"
     t = strip_think(sess_thread(recs))
     calls = [(k, nested_idx(b,'input','code') or '', b['id']) for k,r in enumerate(t) for b in _blocks(r) if b.get('type')=='tool_use']
-    i,j = capture_slice([c for _,c,_ in calls])
+    i,_,j = capture_slice([c for _,c,_ in calls])
     kend = first(k for k,r in enumerate(t) if any(b.get('tool_use_id')==calls[j][2] for b in _blocks(r)))
     return L(t[calls[i][0]:kend+1])
 
@@ -82,16 +82,20 @@ def is_clean(
     return probs
 
 # %% ../nbs/00_claudedojo.ipynb #71ddbc0b
-OPENING = 'Bootstrapping: the startup script has already run its imports, so I read the tooling docs, check the catalog, then take the dojo.'
+OPENING = 'Bootstrapping: the startup script has already run its imports, so I read the tooling docs and check the catalog.'
+
+def _starts(r): return any(re.match(_START_RE, nested_idx(b,'input','code') or '') for b in _blocks(r))
 
 def mk_template(
-    picked, # Round records, e.g. from `curate_dojo`
-    opening=OPENING, # Reply text preceding the first tool call
-    closing="OK I'm ready.", # Reply text ending the round
-    doced=None, # Names doc()'d during the round, stored in the dialog's metadata for launch-time doc-state seeding
+    picked, # Captured records, e.g. from `curate_dojo`: the bootstrap reads, then the round
+    opening=OPENING, # Bootstrap reply text preceding its first tool call
+    closing="OK I'm ready.", # Reply text ending each prompt's reply
+    doced=None, # Names doc()'d during the capture, stored in the dialog's metadata for launch-time doc-state seeding
 ):
-    "A template dialog: `picked` wrapped in `TMPL_PROMPT` and framing text, with tool output untruncated"
-    recs = [mk_rec('user', TMPL_PROMPT), mk_rec('assistant', opening), *picked, mk_rec('assistant', closing)]
+    "A two-prompt template dialog: `picked` split at its `dojo_start()` call into the bootstrap reply and the round reply, each wrapped in its prompt and framing text, with tool output untruncated"
+    k = first(i for i,r in enumerate(picked) if _starts(r))
+    recs = [mk_rec('user', BOOT_PROMPT), mk_rec('assistant', opening), *picked[:k], mk_rec('assistant', closing),
+        mk_rec('user', TMPL_PROMPT), *picked[k:], mk_rec('assistant', closing)]
     dlg = chat2dlg(recs2chat(recs), 'dojo_template', mx=None)
     dlg.meta['llmdojo'] = dict(doced=list(doced or []))
     return dlg
@@ -115,29 +119,29 @@ def load_template(
 
 # %% ../nbs/00_claudedojo.ipynb #658ba7f7
 def build_template(
-    src, # Path to a template dialog .ipynb
+    boot=None, # The bootstrap dialog (or its path); the packaged clikernel bootstrap if None
+    rnd=None, # The round dialog (or its path); the packaged round if None
     d=None, # Store dir; `TMPL_DIR` if None
     cwd='.', # Project directory recorded in the records
 ):
-    "Convert a template dialog into the store; the dialog's `llmdojo.doced` metadata rides along for launch-time doc-state seeding"
-    dlg = read_ipynb(str(src))
-    save_template(msgs2recs(dlg2msgs(dlg), key='claudedojo', cwd=str(cwd), model=None), d,
-        doced=nested_idx(dlg.meta, 'llmdojo', 'doced'))
+    "Assemble the bootstrap and the round into the store; the assembled `doced` rides along for launch-time doc-state seeding"
+    dlg = assemble(boot or CLIK_BOOT, rnd)
+    save_template(msgs2recs(dlg2msgs(dlg), key='claudedojo', cwd=str(cwd), model=None), d, doced=dlg.meta['llmdojo']['doced'])
 
 # %% ../nbs/00_claudedojo.ipynb #9069c1a2
 def capture_current(
     sid=None, # Session id or name; the project's newest transcript if None
     cwd=None, # Project directory; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
-    docs=None, # Documented names; derived from the round's `doc(...)` calls if None
+    docs=None, # Documented names; derived from the captured `doc(...)` calls if None
 ):
-    "Gate an existing session's clean round and store its template"
+    "Gate an existing session's clean round and store its template; writes `boot.ipynb` and `round.ipynb` beside the store for review"
     selected = curate_dojo(load_sess(sid, cwd))
     if probs := is_clean(selected): raise ValueError('; '.join(probs))
     if docs is None: docs = doced_names(_cells(selected))
     dlg = canon_tmpl(mk_template(selected, doced=docs))
     save_template(msgs2recs(dlg2msgs(dlg), key='claudedojo', model=None), d, doced=docs)
-    write_ipynb(dlg, Path(d or TMPL_DIR)/'template.ipynb')
+    for part,nm in zip(split_template(dlg), ('boot', 'round')): write_ipynb(part, Path(d or TMPL_DIR)/f'{nm}.ipynb')
     return dlg
 
 # %% ../nbs/00_claudedojo.ipynb #f4e0e6c4
@@ -148,24 +152,25 @@ async def capture_dojo(
     attempts=3, # Gated attempts before giving up
     budget=10.0, # Max USD per attempt
 ):
-    "Play a scripted dojo round headlessly, gate it with `is_clean`, and store the curated template"
+    "Play a scripted dojo round headlessly (the bootstrap prompt, then the dojo prompt), gate it with `is_clean`, and store the curated template"
     from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, AssistantMessage, TextBlock, ToolUseBlock
     for i in range(attempts):
         proj = Path(tempfile.mkdtemp(prefix='claudedojo_'))
         (proj/'pyproject.toml').write_text('[project]\nname = "dojo-capture"\nversion = "0"\n')
         sid = str(uuid.uuid4())
-        opts = ClaudeAgentOptions(cwd=proj, session_id=sid, model=model, max_budget_usd=budget, permission_mode='bypassPermissions',
+        def _opts(**kw): return ClaudeAgentOptions(cwd=proj, model=model, max_budget_usd=budget, permission_mode='bypassPermissions',
             setting_sources=[], mcp_servers=dict(clikernel=dict(type='stdio', command=shutil.which('clikernel-mcp'))), strict_mcp_config=True,
             thinking=dict(type='adaptive'), effort=effort, env={'LLMDOJO_STATE_DIR': str(proj/'state'), 'MAX_MCP_OUTPUT_TOKENS': '50000'},
-            system_prompt=dict(type='preset', preset='claude_code', append=CAPTURE_SCRIPT))
+            system_prompt=dict(type='preset', preset='claude_code', append=CAPTURE_SCRIPT), **kw)
         cost,err = 0,None
         try:
-            async for m in query(prompt=TMPL_PROMPT, options=opts):
-                if isinstance(m, ResultMessage): cost = m.total_cost_usd or 0
-                elif isinstance(m, AssistantMessage):
-                    for b in m.content:
-                        if isinstance(b, ToolUseBlock): print('>', str(b.input.get('code', b.input))[:80], flush=True)
-                        elif isinstance(b, TextBlock) and b.text.strip(): print('.', b.text.strip()[:80], flush=True)
+            for prompt,opts in ((BOOT_PROMPT, _opts(session_id=sid)), (TMPL_PROMPT, _opts(resume=sid))):
+                async for m in query(prompt=prompt, options=opts):
+                    if isinstance(m, ResultMessage): cost += m.total_cost_usd or 0
+                    elif isinstance(m, AssistantMessage):
+                        for b in m.content:
+                            if isinstance(b, ToolUseBlock): print('>', str(b.input.get('code', b.input))[:80], flush=True)
+                            elif isinstance(b, TextBlock) and b.text.strip(): print('.', b.text.strip()[:80], flush=True)
         except Exception as e: err = f'run failed: {e}'
         recs = [] if err else sess_thread(load_sess(sid, proj))
         probs = [err] if err else is_clean(recs)
@@ -173,7 +178,7 @@ async def capture_dojo(
         if not probs:
             tdlg = capture_current(sid, proj, d)
             print(f"stored: cid {load_template(d)[1]['cid']}, {(Path(d or TMPL_DIR)/'template.jsonl').stat().st_size//1024}KB")
-            print(f"review dialog: {Path(d or TMPL_DIR)/'template.ipynb'} - curate it, then rebuild the stores with dojobuild --claude (and --codex)")
+            print(f"review dialogs: {Path(d or TMPL_DIR)/'boot.ipynb'} and round.ipynb: curate, copy over the packaged pair, then dojobuild")
         shutil.rmtree(proj)
         shutil.rmtree(sess_dir(proj), ignore_errors=True)
         if not probs: return tdlg
@@ -212,14 +217,18 @@ def append_dojo(
 
 # %% ../nbs/00_claudedojo.ipynb #cff4225e
 def _is_prompt(r): return r.get('type')=='user' and rec_role(r)=='user'
-
-def _dealt(t): return any(re.match(_START_RE, nested_idx(b,'input','code') or '') for r in t for b in _blocks(r))
+def _tcells(t): return [nested_idx(b,'input','code') or '' for r in t for b in _blocks(r) if b.get('type')=='tool_use']
+def _dealt(t): return any(re.match(_START_RE, c) for c in _tcells(t))
+def _boots(t): return bool(cs := _tcells(t)) and not boot_gates(cs)
 
 def strip_dojo(
     recs, # Session records, e.g. from `load_sess`
 ):
-    "Copy of `recs` without the user turns that dealt a round (bare `dojo_start()`)"
-    return _turns(recs, _is_prompt).filter(_dealt, negate=True).concat()
+    "Copy of `recs` without the user turns that dealt a round (bare `dojo_start()`), nor a bootstrap turn (only doc reads) right before one"
+    ts = _turns(recs, _is_prompt)
+    drop = {i for i,t in enumerate(ts) if _dealt(t)}
+    drop |= {i-1 for i in drop if i and _boots(ts[i-1])}
+    return L(t for i,t in enumerate(ts) if i not in drop).concat()
 
 # %% ../nbs/00_claudedojo.ipynb #aa9b31fe
 def compact_dojo(

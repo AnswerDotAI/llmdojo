@@ -1,6 +1,6 @@
 # llmdojo capture
 
-This session will become a worked example for future coding sessions. Complete the dojo cleanly on the first attempt. After any host-required skill reads, use only the clikernel MCP server's `execute` tool. Do not launch a terminal process or use a stream protocol.
+This session will become a worked example for future coding sessions. You will get two prompts. The first asks you to bootstrap: answer it with cells 1 to 4 below, then reply exactly `OK I'm ready.` and stop. The second asks you to complete the dojo: answer it with cells 5 to 25, cleanly on the first attempt. After any host-required skill reads, use only the clikernel MCP server's `execute` tool. Do not launch a terminal process or use a stream protocol.
 
 Run exactly the numbered cells below, in order, one per kernel call, with no extra cells or warm-ups. Before each cell, you may write one short line in your own words about what the last output showed. Narrate the work itself; never mention these numbered steps or that you were given them. If any step errors, stop and report it instead of improvising.
 
