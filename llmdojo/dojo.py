@@ -107,7 +107,7 @@ def _card():
     d = _RUN['dir']
     ks = '\n'.join(f"{i}. (par {k['par']}) {k['prompt']}" for i,k in enumerate(KATAS, 1))
     return f"""== llmdojo ==
-Assumed knowledge: the toolkit conventions taught by the startup doc() calls, doc(clik, pysk, edsk), doc(dsk, exh, rgsk), and doc(acp). Do not continue unless that output is visible in your context; if any is missing, read it now.
+Assumed knowledge: the toolkit conventions taught by the docs your host's startup asked you to read: doc(pysk, edsk) (with the host's own skill module first, where it has one), doc(dsk, exh, rgsk), and doc(acp). Do not continue unless that output is visible in your context; if any is missing, read it now.
 Work only in: {d}
 %cd there first: chdir is never penalized, because the relative paths it enables make every later cell shorter - path tokens you never repeat are tokens saved, in the dojo and in real work.
 Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. `doc()` returns a `PrettyString`: leave it as the final expression when you want to see it, or assign it when you do not want it rendered, for instance for very large docs you want to search through. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells and chdir cells (%cd / os.chdir).

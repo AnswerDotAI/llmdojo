@@ -16,7 +16,7 @@ from fastcore.utils import *
 from fastcore.script import call_parse
 from llmsurgery.oai import *
 from llmsurgery.compact import compact_chat
-from aidialog.ipynb import read_ipynb, write_ipynb
+from aidialog.ipynb import write_ipynb
 from .rules import _state_root
 from .tmpl import *
 from .tmpl import _dojo_v, _seed_doced, _START_RE, _turns
@@ -123,7 +123,7 @@ def is_clean(
 
 # %% ../nbs/01_codexdojo.ipynb #fce1bcb2
 def _capture_span(src):
-    "Native custom-call pairs from the bootstrap docs through the first dojo score"
+    "Native custom-call pairs from the bootstrap reads through the first dojo score"
     items = _items(src)
     starts = [i for i,x in enumerate(items) if re.match(_START_RE,_cell(x))]
     if not starts: raise ValueError('no dojo_start() call')
@@ -131,8 +131,8 @@ def _capture_span(src):
     users = [i for i,x in enumerate(items[:start]) if x.get('type')=='message' and x.get('role')=='user']
     if not users: raise ValueError('no user message before dojo_start()')
     end = first((i for i,x in enumerate(items[start+1:],start+1) if x.get('type')=='message' and x.get('role')=='user'),len(items))
-    pairs = collapse_deferred(items[users[-1]+1:end])
-    i,j = capture_slice([_cell(x) for x in pairs[::2]])
+    pairs = collapse_deferred(items[users[0]+1:end])
+    i,_,j = capture_slice([_cell(x) for x in pairs[::2]])
     return pairs[i*2:(j+1)*2]
 
 def capture_current(
@@ -140,55 +140,59 @@ def capture_current(
     d=None, # Template store dir; `TMPL_DIR` if None
     docs=None, # Documented names; derived from captured `doc(...)` calls if None
 ):
-    "Gate an existing Codex thread's clean round and store its native template"
+    "Gate an existing Codex thread's clean round and store its native template; writes `boot.ipynb` and `round.ipynb` beside the store for review"
     selected = reid_items(_capture_span(response_items(load_rollout(ref))),'codexdojo')
     if probs:=is_clean(selected): raise ValueError('; '.join(probs))
     if docs is None: docs = doced_names([_cell(x) for x in selected])
     dlg = canon_tmpl(mk_template(selected,doced=docs))
     save_template(dlg2items(dlg),d,doced=docs)
-    write_ipynb(dlg,Path(d or TMPL_DIR)/'template.ipynb')
+    for part,nm in zip(split_template(dlg), ('boot', 'round')): write_ipynb(part, Path(d or TMPL_DIR)/f'{nm}.ipynb')
     return dlg
 
 def capture_dojo(
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
-    "Run a clean dojo in a bare Codex child and store its review dialog"
+    "Run a clean dojo in a bare Codex child (the bootstrap prompt, then the dojo prompt resumed onto it) and store its review dialogs"
     with tempfile.TemporaryDirectory(prefix='codexdojo_') as td:
         proj = Path(td)
         (proj/'pyproject.toml').write_text('[project]\nname = "dojo-capture"\nversion = "0"\n')
         (proj/'AGENTS.md').write_text(CAPTURE_SCRIPT)
         env = os.environ | {'LLMDOJO_STATE_DIR': str(proj/'state')}
-        cmd = ['codex','-a','never','-s','workspace-write','exec','--json','--skip-git-repo-check','-C',str(proj),TMPL_PROMPT]
-        proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,text=True,env=env)
+        base = ['codex','-a','never','-s','workspace-write','exec','--json','--skip-git-repo-check','-C',str(proj)]
         sid = None
-        for line in proc.stdout:
-            event = json.loads(line)
-            if event.get('type')=='thread.started':
-                sid = event['thread_id']
-                print(f'thread: {sid}',flush=True)
-            elif event.get('type')=='item.completed':
-                it = event.get('item',{})
-                typ = it.get('type')
-                if typ=='agent_message': print(it['text'],flush=True)
-                elif typ!='reasoning':
-                    c = parse_exec(it.get('input') or '')
-                    desc = c.arguments.get('code',str(c.arguments)).splitlines()[0] if c else truncstr(json.dumps(it),160)
-                    print(f'[{typ}] {desc}',flush=True)
-        if rc:=proc.wait(): raise subprocess.CalledProcessError(rc,cmd)
-        if not sid: raise RuntimeError('capture produced no thread id')
+        for cmd in (base+[BOOT_PROMPT], lambda: base+['resume',sid,TMPL_PROMPT]):
+            if callable(cmd): cmd = cmd()
+            proc = subprocess.Popen(cmd,stdout=subprocess.PIPE,text=True,env=env)
+            for line in proc.stdout:
+                event = json.loads(line)
+                if event.get('type')=='thread.started':
+                    sid = event['thread_id']
+                    print(f'thread: {sid}',flush=True)
+                elif event.get('type')=='item.completed':
+                    it = event.get('item',{})
+                    typ = it.get('type')
+                    if typ=='agent_message': print(it['text'],flush=True)
+                    elif typ!='reasoning':
+                        c = parse_exec(it.get('input') or '')
+                        desc = c.arguments.get('code',str(c.arguments)).splitlines()[0] if c else truncstr(json.dumps(it),160)
+                        print(f'[{typ}] {desc}',flush=True)
+            if rc:=proc.wait(): raise subprocess.CalledProcessError(rc,cmd)
+            if not sid: raise RuntimeError('capture produced no thread id')
         return capture_current(sid,d)
 
 # %% ../nbs/01_codexdojo.ipynb #8c6b39a0
-OPENING = 'Bootstrapping: I read the tooling docs, check the catalog, then take the dojo.'
+OPENING = 'Bootstrapping: I read the tooling docs and check the catalog.'
 
 def mk_template(
-    picked, # Native custom call/result pairs
-    opening=OPENING, # Reply text preceding the first tool call
-    closing="OK I'm ready.", # Reply text ending the round
-    doced=None, # Names doc()'d during the round
+    picked, # Native custom call/result pairs: the bootstrap reads, then the round
+    opening=OPENING, # Bootstrap reply text preceding its first tool call
+    closing="OK I'm ready.", # Reply text ending each prompt's reply
+    doced=None, # Names doc()'d during the capture
 ):
-    "A template dialog with native tool output left untruncated"
-    items = [codex_msg('user',TMPL_PROMPT),codex_msg('assistant',opening),*picked,codex_msg('assistant',closing)]
+    "A two-prompt template dialog with native tool output left untruncated: `picked` split at its `dojo_start()` call into the bootstrap reply and the round reply"
+    k = first(i for i,x in enumerate(picked) if re.match(_START_RE, _cell(x)))
+    items = [codex_msg('user',BOOT_PROMPT),codex_msg('assistant',opening),*picked[:k],codex_msg('assistant',closing),
+        codex_msg('user',TMPL_PROMPT),*picked[k:],codex_msg('assistant',closing)]
     dlg = items2dlg(items,'codexdojo_template',mx=None)
     dlg.meta['llmdojo'] = dict(doced=list(doced or []))
     return dlg
@@ -225,13 +229,13 @@ def load_template(
 
 # %% ../nbs/01_codexdojo.ipynb #635dbdd7
 def build_template(
-    src, # Path to a template dialog
+    boot=None, # The bootstrap dialog (or its path); the packaged clikernel bootstrap if None
+    rnd=None, # The round dialog (or its path); the packaged round if None
     d=None, # Store dir; `TMPL_DIR` if None
 ):
-    "Convert a reviewed template dialog back into the native store"
-    dlg = read_ipynb(str(src))
-    items = reid_items(dlg2items(dlg),'codexdojo')
-    save_template(items,d,doced=nested_idx(dlg.meta,'llmdojo','doced') or [])
+    "Assemble the bootstrap and the round into the native store"
+    dlg = assemble(boot or CLIK_BOOT, rnd)
+    save_template(reid_items(dlg2items(dlg),'codexdojo'),d,doced=dlg.meta['llmdojo']['doced'])
 
 # %% ../nbs/01_codexdojo.ipynb #c51d054b
 def _load_reg(d):
@@ -274,14 +278,17 @@ async def append_dojo(
 
 # %% ../nbs/01_codexdojo.ipynb #c507e5da
 def _is_prompt(x): return x.get('type')=='message' and x.get('role')=='user'
-
 def _dealt(t): return any(re.match(_START_RE, _cell(x)) for x in t)
+def _boots(t): return bool(cs := [c for x in t if (c := _cell(x))]) and not boot_gates(cs)
 
 def strip_dojo(
     items, # Responses items in conversation order
 ):
-    "Copy of `items` without the user turns that dealt a round (bare `dojo_start()`)"
-    return _turns(items, _is_prompt).filter(_dealt, negate=True).concat()
+    "Copy of `items` without the user turns that dealt a round (bare `dojo_start()`), nor a bootstrap turn (only doc reads) right before one"
+    ts = _turns(items, _is_prompt)
+    drop = {i for i,t in enumerate(ts) if _dealt(t)}
+    drop |= {i-1 for i in drop if i and _boots(ts[i-1])}
+    return L(t for i,t in enumerate(ts) if i not in drop).concat()
 
 def _strip(items):
     "`strip_dojo`, unless nothing else would remain to compact"
