@@ -15,6 +15,7 @@ from importlib.resources import files
 from fastcore.utils import *
 from fastcore.script import call_parse
 from llmsurgery.ant import *
+from fastclaude.session import *
 from aidialog.ipynb import read_ipynb, write_ipynb
 from aidialog.hist import chat2dlg
 from .rules import _state_root
