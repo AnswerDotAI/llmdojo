@@ -282,8 +282,9 @@ def _resolve_host():
     return os.getppid()
 
 def _host_session():
-    "Resolved once per worker and cached: the id is stable for the worker's life"
+    "Resolved once per worker and cached: the id is stable for the worker's life. A host that learns its conversation id only after the kernel starts (ipyai: its session file) names it in `LLMDOJO_HOST_ID`, read live so it can be set at any time"
     global _HOST
+    if (h := os.environ.get('LLMDOJO_HOST_ID')): return h
     if _HOST is None: _HOST = _resolve_host()
     return _HOST
 

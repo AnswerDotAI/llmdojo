@@ -19,7 +19,7 @@ from aidialog.ipynb import read_ipynb, write_ipynb, reads_ipynb
 from aidialog.hist import reply2dlg, dlg2reply, _parse_call
 from aidialog.dialog import code_output, prompt_output
 from aidialog.msg_parts import ToolResponse, tool_text
-from .tmpl import save_store, load_store, load_reg, round_gates, find_cid, doced_names, launch_config, DOJO_CANON
+from .tmpl import save_store, load_store, load_reg, round_gates, find_cid, doced_names, launch_config, DOJO_CANON, _seed_doced
 
 # %% ../nbs/03_ipyaidojo.ipynb #e82c3701
 TOOL = 'py'   # ipyai's model-facing tool: runs a cell in the user's kernel
@@ -97,11 +97,12 @@ def prep_dojo(
     cwd=None, # Project to start in; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
-    "Write the template as a session of `cwd` through ipyai's `Session`, register its completion id, and return the session id to resume"
+    "Write the template as a session of `cwd` through ipyai's `Session`, register its completion id, seed its doc-state, and return the session id to resume"
     from ipyai.session import Session
     items,meta = load_reg(d, TMPL_DIR, 'ipyaidojo')
     s = Session(root=cwd or '.')
     s.save(template_dialog(items))
+    if ds := meta.get('doced'): _seed_doced(s.path.stem, ds)   # ipyai names the session stem in the kernel's LLMDOJO_HOST_ID
     return s.path.stem
 
 # %% ../nbs/03_ipyaidojo.ipynb #2ab65f78
