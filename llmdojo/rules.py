@@ -356,6 +356,6 @@ def make_inspector():
         for f in fs:
             r = next(r for r in RULES if r.name == f.rule)
             if r.block: raise RuleBlock(f'{f.note} (This check is an early version: if the block seems wrong here, stop and tell your user.)')
-            out.append(f'<{r.tag}>\n{f.note}\n</{r.tag}>\n')
+            if not os.environ.get('CLIKERNEL_QUIET'): out.append(f'<{r.tag}>\n{f.note}\n</{r.tag}>\n')
         return ''.join(out)
     return _inspect
