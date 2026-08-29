@@ -17,9 +17,6 @@ classifiers = [
 ]
 dependencies = ['fastcore>=2.1.10', 'clikernel>=0.2.0', 'llmsurgery>=0.0.12', 'aidialog>=0.0.11', 'fastclaude>=0.0.1']
 
-[project.optional-dependencies]
-dev = ['claude-agent-sdk']
-
 [project.urls]
 Repository = "https://github.com/AnswerDotAI/llmdojo"
 Documentation = "https://AnswerDotAI.github.io/llmdojo/"
@@ -40,5 +37,8 @@ include = ["llmdojo*"]
 
 [tool.setuptools.package-data]
 llmdojo = ["dojo_data/**/*"]
+
+[tool.chkstyle]
+skip_paths = ["_modidx.py", "claude/"]
 
 [tool.nbdev]

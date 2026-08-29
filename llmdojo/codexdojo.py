@@ -17,9 +17,8 @@ from fastcore.script import call_parse
 from llmsurgery.oai import *
 from llmsurgery.compact import compact_chat
 from aidialog.ipynb import read_ipynb, write_ipynb
-from .rules import _state_root
 from .tmpl import *
-from .tmpl import _dojo_v, _seed_doced, _START_RE, _turns
+from .tmpl import _seed_doced, _START_RE, _turns
 
 # %% ../nbs/01_codexdojo.ipynb #1f05a641
 def _items(src):
@@ -27,6 +26,8 @@ def _items(src):
     src = L(src)
     return response_items(src) if any(x.get('type')=='response_item' for x in src) else L(obj2dict(x) for x in src)
 
+
+# %% ../nbs/01_codexdojo.ipynb #583dc527
 def _out_text(item):
     out = item.get('output','')
     if isinstance(out,str): return out
@@ -135,6 +136,8 @@ def _capture_span(src):
     i,j = capture_slice([_cell(x) for x in pairs[::2]])
     return pairs[i*2:(j+1)*2]
 
+
+# %% ../nbs/01_codexdojo.ipynb #ced01e7e
 def capture_current(
     ref=None, # Codex thread UUID; current thread if None
     d=None, # Template store dir; `TMPL_DIR` if None
@@ -149,6 +152,7 @@ def capture_current(
     write_ipynb(dlg,Path(d or TMPL_DIR)/'template.ipynb')
     return dlg
 
+# %% ../nbs/01_codexdojo.ipynb #096f9019
 def capture_dojo(
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
@@ -283,6 +287,8 @@ def strip_dojo(
     "Copy of `items` without the user turns that dealt a round (bare `dojo_start()`)"
     return _turns(items, _is_prompt).filter(_dealt, negate=True).concat()
 
+
+# %% ../nbs/01_codexdojo.ipynb #a383c348
 def _strip(items):
     "`strip_dojo`, unless nothing else would remain to compact"
     s = strip_dojo(items)

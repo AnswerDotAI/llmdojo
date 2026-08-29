@@ -10,17 +10,18 @@ __all__ = ['DROP_ATT', 'OPENING', 'TMPL_DIR', 'capture_span', 'curate_dojo', 'do
            'append_dojo', 'strip_dojo', 'compact_dojo', 'main']
 
 # %% ../nbs/00_claudedojo.ipynb #8602c977
-import asyncio, json, os, re, shutil, sys, tempfile, uuid
+import asyncio, os, re, shutil, sys, tempfile
 from importlib.resources import files
 from fastcore.utils import *
 from fastcore.script import call_parse
 from llmsurgery.ant import *
 from fastclaude.session import *
+from fastclaude.core import astream
+from aidialog.msg_parts import Msg, Text
 from aidialog.ipynb import read_ipynb, write_ipynb
 from aidialog.hist import chat2dlg
-from .rules import _state_root
 from .tmpl import *
-from .tmpl import _dojo_v, _seed_doced, _START_RE, _turns
+from .tmpl import _seed_doced, _START_RE, _turns
 
 # %% ../nbs/00_claudedojo.ipynb #0c09a7a3
 def _is_err(b): return b.get('type')=='tool_result' and b.get('is_error')
@@ -150,25 +151,25 @@ async def capture_dojo(
     budget=10.0, # Max USD per attempt
 ):
     "Play a scripted dojo round headlessly, gate it with `is_clean`, and store the curated template"
-    from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, AssistantMessage, TextBlock, ToolUseBlock
     for i in range(attempts):
         proj = Path(tempfile.mkdtemp(prefix='claudedojo_'))
         (proj/'pyproject.toml').write_text('[project]\nname = "dojo-capture"\nversion = "0"\n')
-        sid = str(uuid.uuid4())
-        opts = ClaudeAgentOptions(cwd=proj, session_id=sid, model=model, max_budget_usd=budget, permission_mode='bypassPermissions',
-            setting_sources=[], mcp_servers=dict(clikernel=dict(type='stdio', command=shutil.which('clikernel-mcp'))), strict_mcp_config=True,
-            thinking=dict(type='adaptive'), effort=effort, env={'LLMDOJO_STATE_DIR': str(proj/'state'), 'MAX_MCP_OUTPUT_TOKENS': '50000'},
-            system_prompt=dict(type='preset', preset='claude_code', append=CAPTURE_SCRIPT))
-        cost,err = 0,None
+        run = astream([Msg('user', [Text(TMPL_PROMPT)])], model=model, cwd=proj, append_system=CAPTURE_SCRIPT,
+            permission_mode='bypassPermissions', setting_sources=(), thinking='adaptive', effort=effort, max_budget=budget,
+            mcp_config=dict(clikernel=dict(type='stdio', command=shutil.which('clikernel-mcp'))),
+            env={'LLMDOJO_STATE_DIR': str(proj/'state'), 'MAX_MCP_OUTPUT_TOKENS': '50000'})
+        sid,cost,err = None,0,None
         try:
-            async for m in query(prompt=TMPL_PROMPT, options=opts):
-                if isinstance(m, ResultMessage): cost = m.total_cost_usd or 0
-                elif isinstance(m, AssistantMessage):
-                    for b in m.content:
-                        if isinstance(b, ToolUseBlock): print('>', str(b.input.get('code', b.input))[:80], flush=True)
-                        elif isinstance(b, TextBlock) and b.text.strip(): print('.', b.text.strip()[:80], flush=True)
+            async for m in run:
+                t = m.get('type')
+                if t=='system' and m.get('subtype')=='init': sid = m.get('session_id')
+                elif t=='result': cost = m.get('total_cost_usd') or 0
+                elif t=='assistant':
+                    for b in m['message'].get('content') or []:
+                        if b.get('type')=='tool_use': print('>', str(b.get('input', {}).get('code', b.get('input')))[:80], flush=True)
+                        elif b.get('type')=='text' and b['text'].strip(): print('.', b['text'].strip()[:80], flush=True)
         except Exception as e: err = f'run failed: {e}'
-        recs = [] if err else sess_thread(load_sess(sid, proj))
+        recs = [] if err or not sid else sess_thread(load_sess(sid, proj))
         probs = [err] if err else is_clean(recs)
         print(f"attempt {i+1}: ${cost:.2f}, {len(recs)} records" + (f", rejected: {'; '.join(probs)}" if probs else ", clean"), flush=True)
         if not probs:
