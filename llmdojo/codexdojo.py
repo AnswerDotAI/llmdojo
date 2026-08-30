@@ -37,7 +37,7 @@ def _logical(item): return parse_exec(item.get('input','')) if item.get('type')=
 
 def _cell(item):
     p = _logical(item)
-    return p.arguments.get('code','') if p and p.name=='tools.mcp__clikernel__execute' else ''
+    return p.arguments.get('code','') if p and p.name=='tools.mcp__clikernel__py' else ''
 
 # %% ../nbs/01_codexdojo.ipynb #786bd5fb
 def collapse_deferred(src):
@@ -82,7 +82,7 @@ def pick_turns(
     *cells, # Kernel cell sources: matched exactly, else as a prefix; the last match wins
 ):
     "The clikernel MCP call/result pairs for `cells`, in that order"
-    return pick_calls(src, *((('tools.mcp__clikernel__execute',c) for c in cells)))
+    return pick_calls(src, *((('tools.mcp__clikernel__py',c) for c in cells)))
 
 # %% ../nbs/01_codexdojo.ipynb #2dbf7eb2
 def dojo_round(src):
