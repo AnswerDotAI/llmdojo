@@ -2,6 +2,14 @@
 
 <!-- do not remove -->
 
+## 0.0.4
+
+### New Features
+
+- Rebake the dojo round for the renamed clikernel py tool ([#24](https://github.com/AnswerDotAI/llmdojo/pull/24)), thanks to [@jph00](https://github.com/jph00)
+- Switch Claude capture to fastclaude astream and drop the agent SDK dependency ([#23](https://github.com/AnswerDotAI/llmdojo/issues/23))
+
+
 ## 0.0.3
 
 ### New Features
