@@ -9,7 +9,7 @@ view_dlg('nbs/01_api.ipynb')
 ```python
 # Kata 1 answered; on to the file edits.
 ```
-> (mcp__clikernel__execute completed with no output)
+> (mcp__clikernel__py completed with no output)
 ```python
 doc(lnhashview_file, file_exhash)
 ```
@@ -31,7 +31,7 @@ file_exhash('core.py',
 ```python
 # One call, bottom-to-top so the delete can't shift the addresses below it; the diff shows all three changes landed.
 ```
-> (mcp__clikernel__execute completed with no output)
+> (mcp__clikernel__py completed with no output)
 ```python
 lnhashview_file('tmpl.py')
 ```
@@ -46,7 +46,7 @@ def render(name, temp):
 ```python
 # The magic's text goes in verbatim - no quoting layer to fight, even with backslashes and both quote styles in one docstring.
 ```
-> (mcp__clikernel__execute completed with no output)
+> (mcp__clikernel__py completed with no output)
 ```python
 doc(cell_exhash)
 ```
@@ -63,11 +63,11 @@ On a connection error, `fetch_daily` retries the request twice more, making 3 at
 ```python
 # The whole message is one line, so % c replaces it cleanly - no hashes needed for a full replace.
 ```
-> (mcp__clikernel__execute completed with no output)
+> (mcp__clikernel__py completed with no output)
 ```python
 import report
 ```
-> (mcp__clikernel__execute completed with no output)
+> (mcp__clikernel__py completed with no output)
 ```python
 doc(report.daily_report)
 ```
