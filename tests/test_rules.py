@@ -164,6 +164,23 @@ def test_session_rules(monkeypatch):
     s15 = Session(ns={"rg": rgapi.skill.rg})
     assert fires("doced(rg='0000'); rg('x', '.')", "nodoc", s15)
 
+    # an instance documented by its class: doc(Klass) covers calls to it, and the class key declares it
+    class Caller:
+        def __call__(self, x): return x
+    Caller.__module__ = 'rgapi.skill'
+    s16 = Session(ns={"g": Caller(), "Caller": Caller})
+    assert fires("g('x')", "nodoc", s16)
+    assert not fires("doc(Caller)", "nodoc", s16)
+    assert not fires("g('x')", "nodoc", s16)                      # the class doc covers the instance
+    s17 = Session(ns={"g": Caller()})
+    assert not fires(f"doced(g='{doc_key(Caller)}'); g('x')", "nodoc", s17)
+    class Dyn(Caller):
+        def __dir__(self): return []
+    Dyn.__module__ = 'rgapi.skill'
+    s18 = Session(ns={"api": Dyn(), "Dyn": Dyn})
+    assert not fires("doc(Dyn)", "nodoc", s18)
+    assert fires("api('x')", "nodoc", s18)                        # a dynamic surface: the instance owns its doc
+
     # re-nag: findings repeat on every offending cell until the habit is fixed
     s4 = Session()
     assert fires("Path('a.py').read_text()", "read_file", s4)

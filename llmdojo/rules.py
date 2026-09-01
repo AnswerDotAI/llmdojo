@@ -169,6 +169,13 @@ def _needs_doc(o):
     return bool(f) and 'site-packages' not in f and not f.startswith((sys.prefix, sys.base_prefix))
 
 
+def _covered(o, doced):
+    "Is `o` an instance whose `doc_owner` class is already in `doced`?"
+    from pyskills import doc_owner
+    return (own := doc_owner(o)) is not o and getattr(own, '__name__', '') in doced
+
+
+
 def _docnames(s):
     "Both spellings of a doc'd name, so `doc(mod.func)` also registers the bare name a call site uses"
     return {s, s.rsplit('.', 1)[-1]}
@@ -207,7 +214,7 @@ def _nodoc(tree, src, sess):
                 sess.doced.update(x for e in g.iter.elts for x in _docnames(ast.unparse(e)))
     new = {nm for c in _calls(tree) if (nm := _callee(c)) and not nm.startswith('_') and nm not in _EXEMPT and nm not in sess.doced
         and re.search(rf'\b{re.escape(nm)}\b', src)   # absent from the raw cell means transform-injected (%run -> get_ipython().run_line_magic): never the user's call
-        and callable(sess.ns.get(nm)) and _needs_doc(sess.ns[nm])}
+        and callable(sess.ns.get(nm)) and _needs_doc(sess.ns[nm]) and not _covered(sess.ns[nm], sess.doced)}
     sess.undoced |= new
     return ', '.join(sorted(new)) if new else None
 
