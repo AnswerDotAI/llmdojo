@@ -2,6 +2,13 @@
 
 <!-- do not remove -->
 
+## 0.0.5
+
+### New Features
+
+- Credit class docs for instances documented by their class in the nodoc rule ([#25](https://github.com/AnswerDotAI/llmdojo/pull/25)), thanks to [@jph00](https://github.com/jph00)
+
+
 ## 0.0.4
 
 ### New Features
