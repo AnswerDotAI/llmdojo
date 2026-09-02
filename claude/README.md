@@ -6,7 +6,7 @@ The files here wire clikernel's startup to the llmdojo regime. They live in this
 
 `startup.py` runs inside every new kernel (clikernel executes `~/.config/clikernel/startup.py` via `%run -i` at start). In a Python project it imports the standard tooling modules and prints `startup.txt`, which tells the session what to do next: read the module docs if they aren't already in context, list the pyskills, and complete the dojo.
 
-The Claude Code and codex hooks (the SessionStart bootstrap gate, resumption-vs-compaction detection, and the post-compaction doc-state reset via `llmdojo.rules.forget_doced`) live in [aai-coding](https://github.com/AnswerDotAI/aai-coding) as the `aai-hook` CLI, alongside the `persistent-python` and `pyskills` skills.
+The Claude Code and codex hooks (the SessionStart bootstrap gate and resumption-vs-compaction detection) live in [aai-coding](https://github.com/AnswerDotAI/aai-coding) as the `aai-hook` CLI, alongside the `persistent-python` and `pyskills` skills.
 
 ## Setup
 

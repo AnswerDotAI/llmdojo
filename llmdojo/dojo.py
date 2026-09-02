@@ -2,9 +2,9 @@
 import ast,hashlib,json,os,re,shutil,sys,time
 from importlib.resources import files
 from fastcore.utils import *
-from llmdojo.rules import _state_root, live_session, scan, _callee, _calls, doced
+from llmdojo.rules import _state_root, Session, scan, _callee, _calls
 
-__all__ = ['dojo_start','dojo_score','dojo_redo','dojo_resume','forget_dojo','dojo_version','register_completion','doced']
+__all__ = ['dojo_start','dojo_score','dojo_redo','dojo_resume','forget_dojo','dojo_version','register_completion']
 
 _RUN = {}
 
@@ -111,12 +111,11 @@ Assumed knowledge: the toolkit conventions taught by the startup doc() calls, do
 Work only in: {d}
 %cd there first: chdir is never penalized, because the relative paths it enables make every later cell shorter - path tokens you never repeat are tokens saved, in the dojo and in real work.
 Scoring: kernel cell = 1 stroke; Bash tool call = 2; each print() call = +1. The tooling's reprs are designed to be optimally useful read bare, so end each cell with a bare expression and read what comes back. `doc()` returns a `PrettyString`: leave it as the final expression when you want to see it, or assign it when you do not want it rendered, for instance for very large docs you want to search through. Cells of only doc()/list_pyskills()/imports are free (bare calls, NOT wrapped in print()), as are comment-only narration cells and chdir cells (%cd / os.chdir).
-Penalties: +1 per skill module or workspace function used before doc()ing it.
 Par assumes the tooling's best route, shown with each kata at scoring: matching par means you found it.
 Why the round matters: the rest of this session copies whatever this transcript shows, so one round of correct tooling use improves everything after it. Falling back to sed, cat, or Path.read_text() teaches the opposite, and we find those fallbacks go with weaker, less creative work across the whole task.
 Per-kata scoring: before starting a kata, run a cell containing ONLY a comment in this exact format: '# kata 3'. Cells after it count toward that kata until the next tag cell; tag cells are free. Anything fancier is narration, not a tag.
 Par for the round: {sum(k['par'] for k in KATAS)}. When done: dojo_score(bash_calls=<your Bash call count>)
-The round is complete ONLY on a clean score: par or better, every kata ok, no penalties. Until then do no work outside the dojo; redo over-par katas with dojo_redo, in ascending order. Scoring pauses the ledger: dojo_redo (or dojo_resume() without a reset) restarts it.
+The round is complete ONLY on a clean score: par or better, every kata ok. Until then do no work outside the dojo; redo over-par katas with dojo_redo, in ascending order. Scoring pauses the ledger: dojo_redo (or dojo_resume() without a reset) restarts it.
 This dojo is an early version: note anything about the scoring or process that seems possibly-imperfect, and include it in your report.
 
 {ks}"""
@@ -180,7 +179,7 @@ def _cd_call(c):
 def _is_free(src):
     "A cell costs no strokes if it only reads docs, imports, or chdirs (or is dojo machinery)"
     src = '\n'.join(l for l in src.splitlines() if not re.fullmatch(r'\s*%cd(\s.*)?', l))
-    free = {'doc','list_pyskills','help','doced','forget_doced'} | set(__all__)
+    free = {'doc','list_pyskills','help'} | set(__all__)
     def _ok(n):
         if isinstance(n, ast.Expr) and isinstance(n.value, ast.Call):
             c = n.value
@@ -243,23 +242,19 @@ def dojo_score(bash_calls=0, orient='', report=''):
     costs = [(0 if _is_free(s) else 1) + _nprints(s) for s in cells]
     tagged, unt, per = _attribute(cells, costs)
     strokes = unt + sum(per) + 2*bash_calls
-    sess = live_session(ns=_RUN['ip'].user_ns)  # seeded with persisted doc-state, like the live rules
+    sess = Session(ns=_RUN['ip'].user_ns)
     finds = {}
     for s in cells:
         for f in scan(s, sess): finds.setdefault(f.rule, f.note)
-    undoc = sess.undoced - sess.doced           # a later doc()/doced() remedies the miss on rescore
-    pen = len(undoc)
-    if not undoc: finds.pop('nodoc', None)
     par = sum(k['par'] for k in KATAS)
     fails = [(k, k['check'](d)) for k in KATAS]
-    print(f"strokes {strokes:g} + doc penalties {pen} = {strokes+pen:g}, par {par}")
+    print(f"strokes {strokes:g}, par {par}")
     for c, s in zip(costs, cells): print(f"  {c}| {(s.splitlines() or [''])[0][:70]}")
-    if undoc: print(f"  undoc'd first uses: {', '.join(sorted(undoc))} - doc them now and rescore: a doc() - or doced(f='<key>') with the key from visible doc output - right after the warning is never penalized")
     for name, note in finds.items(): print(f"habit miss [{name}]: {note}")
     miss = [s.strip().splitlines()[0] for s in cells if re.match(r'#\s*kata\b', s.strip(), re.I) and not _kata_tag(s)]
     if miss: print("looked like tags but aren't (exact format: a comment-only cell '# kata <n>'): " + '; '.join(repr(m[:50]) for m in miss))
-    over = strokes + pen - par
-    ok = not finds and not pen and over <= 0 and not any(p for _, p in fails)   # a clean round is gated on the round total: kata pars are route hints
+    over = strokes - par
+    ok = not finds and over <= 0 and not any(p for _, p in fails)   # a clean round is gated on the round total: kata pars are route hints
     overs = []
     for i, (k, (probs, s)) in enumerate(zip(KATAS, zip((p for _, p in fails), per)), 1):
         if tagged and s > k['par']: overs.append(i)

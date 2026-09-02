@@ -18,7 +18,7 @@ from llmsurgery.oai import *
 from llmsurgery.compact import compact_chat
 from aidialog.ipynb import read_ipynb, write_ipynb
 from .tmpl import *
-from .tmpl import _seed_doced, _START_RE, _turns
+from .tmpl import _START_RE, _turns
 
 # %% ../nbs/01_codexdojo.ipynb #1f05a641
 def _items(src):
@@ -141,14 +141,12 @@ def _capture_span(src):
 def capture_current(
     ref=None, # Codex thread UUID; current thread if None
     d=None, # Template store dir; `TMPL_DIR` if None
-    docs=None, # Documented names; derived from captured `doc(...)` calls if None
 ):
     "Gate an existing Codex thread's clean round and store its native template"
     selected = reid_items(_capture_span(response_items(load_rollout(ref))),'codexdojo')
     if probs:=is_clean(selected): raise ValueError('; '.join(probs))
-    if docs is None: docs = doced_names([_cell(x) for x in selected])
-    dlg = canon_tmpl(mk_template(selected,doced=docs))
-    save_template(dlg2items(dlg),d,doced=docs)
+    dlg = canon_tmpl(mk_template(selected))
+    save_template(dlg2items(dlg),d)
     write_ipynb(dlg,Path(d or TMPL_DIR)/'template.ipynb')
     return dlg
 
@@ -189,12 +187,10 @@ def mk_template(
     picked, # Native custom call/result pairs
     opening=OPENING, # Reply text preceding the first tool call
     closing="OK I'm ready.", # Reply text ending the round
-    doced=None, # Names doc()'d during the round
 ):
     "A template dialog with native tool output left untruncated"
     items = [codex_msg('user',TMPL_PROMPT),codex_msg('assistant',opening),*picked,codex_msg('assistant',closing)]
     dlg = items2dlg(items,'codexdojo_template',mx=None)
-    dlg.meta['llmdojo'] = dict(doced=list(doced or []))
     return dlg
 
 # %% ../nbs/01_codexdojo.ipynb #53296a0a
@@ -215,10 +211,9 @@ TMPL_DIR = files('llmdojo')/'dojo_data'/'codex_store'   # package data: compiled
 def save_template(
     items, # Curated native template items
     d=None, # Store dir; `TMPL_DIR` if None
-    doced=None, # Names doc()'d during the baked round; current doc-state if None
 ):
     "Write the template and its metadata to the store"
-    save_store(Path(d or TMPL_DIR), items, dojo_cid(items), doced)
+    save_store(Path(d or TMPL_DIR), items, dojo_cid(items))
 
 # %% ../nbs/01_codexdojo.ipynb #80892363
 def load_template(
@@ -235,7 +230,7 @@ def build_template(
     "Convert a reviewed template dialog back into the native store"
     dlg = read_ipynb(str(src))
     items = reid_items(dlg2items(dlg),'codexdojo')
-    save_template(items,d,doced=nested_idx(dlg.meta,'llmdojo','doced') or [])
+    save_template(items,d)
 
 # %% ../nbs/01_codexdojo.ipynb #c51d054b
 def _load_reg(d):
@@ -251,7 +246,6 @@ async def prep_dojo(
     "Create a thread containing the template and return its id"
     items,meta = _load_reg(d)
     async with codex_client(codex_home) as codex: thread = await codex.create_thread(reid_items(items,'launch:'+uuid.uuid4().hex),cwd=cwd)
-    if ds:=meta.get('doced'): _seed_doced(thread.id,ds)
     return thread.id
 
 # %% ../nbs/01_codexdojo.ipynb #6bdbb30e
@@ -273,7 +267,6 @@ async def append_dojo(
     items = reid_items(items,f'append:{sid}:{len(tail)}')
     items[0] = _prompt_text(items[0],APPEND_PROMPT)
     async with codex_client(codex_home) as codex: await codex.append_thread(sid,items)
-    _seed_doced(sid,meta.get('doced') or [],merge=True)
     return sid
 
 # %% ../nbs/01_codexdojo.ipynb #c507e5da
