@@ -1,7 +1,5 @@
-"""Best-practice detection rules shared by the live cell inspectors and the dojo scorer. Each note teaches exactly one route, since agents reproduce whatever patterns their context shows them.
-
-Doc-state persists per host conversation in a state file reloaded every cell, so kernel restarts lose nothing. Context compaction is what invalidates it: the compaction hooks reset the record for reads made before the boundary, whose doc() output left the context, and `forget_doced(before)` keeps a record written since. When a note fires for docs still visible verbatim (e.g. in the preserved tail after a compaction), call `doced(name='key', ...)` — keys copied from each doc's `# doced:` line or bracketed summary key — to restore the record without reprinting. Declarations are verified against the live rendering, so a wrong or stale key is rejected."""
-import ast,importlib.util,json,os,re,sys,time,tokenize,warnings
+"""Best-practice detection rules shared by the live cell inspectors and the dojo scorer. Each note teaches exactly one route, since agents reproduce whatever patterns their context shows them."""
+import ast,importlib.util,os,re,sys,tokenize
 from pathlib import Path
 from io import StringIO
 from fastcore.basics import store_attr
@@ -20,10 +18,9 @@ _TOOLING = {'lnhashview','lnhashview_file','lnhashview_cell','lnhashview_cells',
 
 
 class Session:
-    "Cross-cell rule state: the namespace for resolving calls, and names already doc'd"
+    "Cross-cell rule state: the namespace for resolving calls"
     def __init__(self, ns=None):
         self.ns = {} if ns is None else ns
-        self.doced,self.undoced = set(),set()
 
 
 class Finding:
@@ -149,74 +146,16 @@ def _run_magic(tree, src, sess):
 
 
 _BOOT = {'doc','list_pyskills'}   # live at the package top level, so the bootstrap line imports them piecemeal by design
-_EXEMPT = _BOOT | {'dojo_start','dojo_score','dojo_redo','dojo_resume','doced','forget_doced','forget_dojo'}   # the prescribed interfaces are called bare by design
+_EXEMPT = _BOOT | {'dojo_start','dojo_score','dojo_redo','dojo_resume','forget_dojo'}   # the prescribed interfaces are called bare by design
 
 def _piecemeal(tree, src, sess):
     for n in ast.walk(tree):
         if isinstance(n, ast.ImportFrom) and n.module and n.names[0].name != '*':
-            if {a.name for a in n.names} <= _BOOT | {'doced','forget_doced'}: continue   # bootstrap and session-reset lines are piecemeal by design
+            if {a.name for a in n.names} <= _BOOT: continue   # bootstrap lines are piecemeal by design
             if n.module.endswith('.skill'): return True
             try: found = importlib.util.find_spec(f'{n.module.split(".")[0]}.skill')
             except ModuleNotFoundError: found = None
             if found: return True
-
-
-def _needs_doc(o):
-    "Editable-install tooling gets doc() before first use; fastcore is ambient vocabulary, and __main__ was authored in-session"
-    m = getattr(o, '__module__', None) or ''
-    if m == '__main__' or m.split('.')[0] == 'fastcore': return False
-    f = str(getattr(sys.modules.get(m), '__file__', None) or '')   # some loaders set __file__ to a Path
-    return bool(f) and 'site-packages' not in f and not f.startswith((sys.prefix, sys.base_prefix))
-
-
-def _covered(o, doced):
-    "Is `o` an instance whose `doc_owner` class is already in `doced`?"
-    from pyskills import doc_owner
-    return (own := doc_owner(o)) is not o and getattr(own, '__name__', '') in doced
-
-
-
-def _docnames(s):
-    "Both spellings of a doc'd name, so `doc(mod.func)` also registers the bare name a call site uses"
-    return {s, s.rsplit('.', 1)[-1]}
-
-
-def _hollow_docs(tree):
-    "Bare doc() expression statements that can never display: any but the cell's last top-level statement. Function bodies don't run at cell time, so they're skipped"
-    out, last = [], (tree.body[-1] if tree.body else None)
-    def go(stmts):
-        for s in stmts:
-            if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)): continue
-            if isinstance(s, ast.Expr) and isinstance(s.value, ast.Call) and _callee(s.value) == 'doc' and s is not last: out.append(s.value)
-            for attr in ('body','orelse','finalbody'): go(getattr(s, attr, []))
-            for h in getattr(s, 'handlers', []): go(h.body)
-    go(tree.body)
-    return out
-
-
-def _hollow_doc(tree, src, sess): return bool(_hollow_docs(tree))
-
-
-
-def _nodoc(tree, src, sess):
-    hollow = set(_hollow_docs(tree))               # a doc() that can't display reads nothing: no credit
-    for c in _calls(tree):                          # record displayed doc() reads and key-verified doced() declarations
-        if _callee(c) == 'doc' and c not in hollow: sess.doced.update(x for a in c.args for x in _docnames(ast.unparse(a)))
-        elif _callee(c) == 'doced' and c.keywords:
-            from pyskills import doc_key
-            sess.doced.update(k.arg for k in c.keywords if k.arg and isinstance(k.value, ast.Constant)
-                and callable(sess.ns.get(k.arg)) and doc_key(sess.ns[k.arg]) == k.value.value)
-    for n in ast.walk(tree):                        # doc(f) looped over literal names docs each element
-        if isinstance(n, (ast.For, ast.ListComp, ast.SetComp, ast.GeneratorExp)):
-            g = n if isinstance(n, ast.For) else n.generators[0]
-            if isinstance(g.target, ast.Name) and isinstance(g.iter, (ast.Tuple, ast.List)) \
-               and any(_callee(c) == 'doc' and c not in hollow and any(isinstance(a, ast.Name) and a.id == g.target.id for a in c.args) for c in _calls(n)):
-                sess.doced.update(x for e in g.iter.elts for x in _docnames(ast.unparse(e)))
-    new = {nm for c in _calls(tree) if (nm := _callee(c)) and not nm.startswith('_') and nm not in _EXEMPT and nm not in sess.doced
-        and re.search(rf'\b{re.escape(nm)}\b', src)   # absent from the raw cell means transform-injected (%run -> get_ipython().run_line_magic): never the user's call
-        and callable(sess.ns.get(nm)) and _needs_doc(sess.ns[nm]) and not _covered(sess.ns[nm], sess.doced)}
-    sess.undoced |= new
-    return ', '.join(sorted(new)) if new else None
 
 
 def _shell_escape(tree, src, sess):
@@ -245,8 +184,6 @@ RULES = [
     Rule('postproc', "Show tooling results bare; narrow with the tool's own parameters.", _postproc),
     Rule('run_magic', 'Invoke magics directly with % syntax.', _run_magic, raw=True),
     Rule('piecemeal', 'Load skill modules whole: from <pkg>.skill import *, after doc(<pkg>.skill).', _piecemeal),
-    Rule('hollow_doc', "A doc() that is neither the cell's last expression nor printed displays nothing: it looks like reading the docs while reading nothing. This is a critical trust issue, not a style point. The user audits work through signals like this one, and a single faked signal makes every other signal suspect; pretending to follow a rule is far worse than openly questioning it. These rules exist because skipping them caused real failures in practice. End the cell with a bare doc(...), batching several names into one call.", _hollow_doc, block=True),
-    Rule('nodoc', "Rule violation: `{0}` docs not read before first use. Run `doc({0})`, or `doced({0}='<key>')` from visible doc output.", _nodoc, raw=True, tag='warn'),
     Rule('shell_escape', 'Run shell commands with the Bash tool.', _shell_escape, block=True),
     Rule('sys_path', 'Never modify sys.path; stop and ask the user.', _sys_path, block=True)]
 
@@ -275,92 +212,14 @@ def scan(src, sess):
     return out
 
 
-_LIVE = None
-
-_HOST = None
-
-def _resolve_host():
-    "The stable host conversation id: the host supplies it directly where it can; when only the project dir is known, the newest project transcript stands in"
-    if (cid := os.environ.get('CODEX_THREAD_ID') or os.environ.get('CLAUDE_CODE_SESSION_ID')): return cid
-    if (pd := os.environ.get('CLAUDE_PROJECT_DIR')):
-        d = Path.home()/'.claude'/'projects'/re.sub(r'[^A-Za-z0-9]', '-', pd)
-        try: return max(d.glob('*.jsonl'), key=lambda p: p.stat().st_mtime).stem
-        except ValueError: pass
-    return os.getppid()
-
-def _host_session():
-    "Resolved once per worker and cached: the id is stable for the worker's life"
-    global _HOST
-    if _HOST is None: _HOST = _resolve_host()
-    return _HOST
-
-def _doced_file():
-    "One doc-state file per host conversation (see `_resolve_host`)"
-    d = _state_root()/'doced'
-    d.mkdir(parents=True, exist_ok=True)
-    return d/f'{_host_session()}.json'
-
-def _save_doced(sess):
-    "Persist the doc-state, sweeping abandoned sessions' files after a day"
-    f = _doced_file()
-    for g in f.parent.iterdir():
-        if g.stat().st_mtime < time.time() - 86400: g.unlink(missing_ok=True)
-    f.write_text(json.dumps(sorted(sess.doced)))
-
-def _load_doced(sess):
-    "Re-read the persisted doc-state: the file is the source of truth, and other processes (the compaction hook) write it too"
-    sf = _doced_file()
-    sess.doced = set(json.loads(sf.read_text())) if sf.exists() else set()
-
-def live_session(ns=None):
-    "A Session seeded from the persisted doc-state file: the same record the live rules keep"
-    sess = Session(ns=ns)
-    _load_doced(sess)
-    return sess
-
-def doced(**names):
-    "Declare tooling whose exact `doc()` output is visible in your context, key-verified: `doced(rg='3f2a')`, copying each key from the `# doced:` line (or bracketed summary key) in that output. With no names, show the current set. A rejected key means the docs changed or are not truly in context: read doc(f) instead."
-    global _LIVE
-    if _LIVE is None: _LIVE = Session()
-    _load_doced(_LIVE)
-    if not names: return sorted(_LIVE.doced)
-    from pyskills import doc_key
-    try: ns = get_ipython().user_ns
-    except NameError:
-        frm = sys._getframe(1)
-        ns = {**frm.f_globals, **frm.f_locals}
-    ok = [nm for nm,key in names.items() if nm in ns and doc_key(ns[nm]) == key]
-    bad = [nm for nm in names if nm not in ok]
-    _LIVE.doced.update(ok)
-    _save_doced(_LIVE)
-    if bad: warnings.warn(f"key mismatch (docs changed, or not truly in context) - read doc({', '.join(bad)}) instead")
-    return f"recorded: {', '.join(ok)}" if ok else ''
-
-def forget_doced(before=None):
-    "Reset the doc-state record (e.g. after context compaction): every tooling function needs a fresh doc(f) before its next use. With `before` (an epoch time), a record written after it survives: those reads happened since the compact, so their docs are still in context."
-    global _LIVE
-    if _LIVE is None: _LIVE = Session()
-    if before:
-        f = _doced_file()
-        if f.exists() and f.stat().st_mtime > before: return
-    _LIVE.doced.clear()
-    _save_doced(_LIVE)
-
-
 def make_inspector():
     "A clikernel cell inspector applying `RULES` live: blocking rules raise, the rest prepend a one-line note"
-    global _LIVE
-    sess = live_session()
-    _LIVE = sess
+    sess = Session()
     def _inspect(tree, src):
         from IPython import get_ipython
         sess.ns = getattr(get_ipython(), 'user_ns', {}) or {}
-        _load_doced(sess)
-        n0 = len(sess.doced)
-        fs = scan(src, sess)
-        if len(sess.doced) != n0: _save_doced(sess)
         out = []
-        for f in fs:
+        for f in scan(src, sess):
             r = next(r for r in RULES if r.name == f.rule)
             if r.block: raise RuleBlock(f'{f.note} (This check is an early version: if the block seems wrong here, stop and tell your user.)')
             if not os.environ.get('CLIKERNEL_QUIET'): out.append(f'<{r.tag}>\n{f.note}\n</{r.tag}>\n')

@@ -15,9 +15,7 @@ def test_dojo(tmp_path, monkeypatch):
         return out
 
     run("import llmdojo.dojo")
-    run("from llmdojo.rules import doced")
-    run("pretool = llmdojo.dojo._card; from pyskills import doc_key")
-    run("doced(pretool=doc_key(pretool))")                  # pre-round declaration, key-verified: persists before any inspector exists
+    run("pretool = llmdojo.dojo._card")
     run("from llmdojo.dojo import *")
     card = run("dojo_start()")
     assert "== llmdojo ==" in card and "(par 2)" in card and "(par 1)" in card and "par 3" not in card and "best route" in card and "%cd" in card and "print()" in card
@@ -56,16 +54,13 @@ def test_dojo(tmp_path, monkeypatch):
     assert "strokes 4" in out                               # the stray cell stayed out of the ledger
     run("dojo_resume()")                                    # counted work resumes
 
-    run("pretool = llmdojo.dojo._card; pretool()")        # 1 stroke; doced pre-round: no penalty
+    run("pretool = llmdojo.dojo._card; pretool()")        # 1 stroke
     run("fake = llmdojo.dojo._card")                      # 1 stroke
-    run("fake()")                                           # 1 stroke, and a nodoc penalty
+    run("fake()")                                           # 1 stroke
     out = run("dojo_score(bash_calls=1)")
-    assert "doc penalties 1" in out and "undoc'd first uses: fake" in out   # pre-round doced honored: only fake flagged
-    assert "never penalized" in out                                          # the report says how to clear the misses
-    run("doced(fake=doc_key(fake))")                        # free declaration remedies the miss
     decoy = "httpx is modern and async-friendly"                            # plausible guess: lacks the documented why
     out = run(f"dojo_score(bash_calls=1, orient={decoy!r})")
-    assert "strokes 7 + doc penalties 0" in out and "habit miss" not in out # doc-fix forgiven on rescore
+    assert "strokes 7" in out and "habit miss" not in out # doc-fix forgiven on rescore
     assert "justification" in out                                           # guessed prose rejected: the token is missing
     half = "it does no connection pooling on its own"
     out = run(f"dojo_score(bash_calls=1, orient={half!r})")
@@ -103,7 +98,7 @@ def test_dojo(tmp_path, monkeypatch):
     out = run("dojo_redo(0)")                               # untagged protocol mistakes: recoverable without a fresh round
     assert "untagged" in out.lower()
     out = run(f"dojo_score(bash_calls=1, orient={ans!r})")
-    assert "strokes 4 + doc penalties 0" in out             # the five untagged strokes discarded; free untagged cells kept
+    assert "strokes 4" in out             # the five untagged strokes discarded; free untagged cells kept
     out = run("dojo_redo(1)")                               # read-only kata: nothing to reset
     assert "kata 4" not in out                              # no shared-file warning, no reapply tax on kata 4
     out = run(f"dojo_score(bash_calls=1, orient={ans!r})")

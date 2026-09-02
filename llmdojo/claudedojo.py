@@ -21,7 +21,7 @@ from aidialog.msg_parts import Msg, Text
 from aidialog.ipynb import read_ipynb, write_ipynb
 from aidialog.hist import chat2dlg
 from .tmpl import *
-from .tmpl import _seed_doced, _START_RE, _turns
+from .tmpl import _START_RE, _turns
 
 # %% ../nbs/00_claudedojo.ipynb #0c09a7a3
 def _is_err(b): return b.get('type')=='tool_result' and b.get('is_error')
@@ -90,12 +90,10 @@ def mk_template(
     picked, # Round records, e.g. from `curate_dojo`
     opening=OPENING, # Reply text preceding the first tool call
     closing="OK I'm ready.", # Reply text ending the round
-    doced=None, # Names doc()'d during the round, stored in the dialog's metadata for launch-time doc-state seeding
 ):
     "A template dialog: `picked` wrapped in `TMPL_PROMPT` and framing text, with tool output untruncated"
     recs = [mk_rec('user', TMPL_PROMPT), mk_rec('assistant', opening), *picked, mk_rec('assistant', closing)]
     dlg = chat2dlg(recs2chat(recs), 'dojo_template', mx=None)
-    dlg.meta['llmdojo'] = dict(doced=list(doced or []))
     return dlg
 
 # %% ../nbs/00_claudedojo.ipynb #a288458d
@@ -104,10 +102,9 @@ TMPL_DIR = files('llmdojo')/'dojo_data'/'claude_store'   # package data: compile
 def save_template(
     recs, # Curated template records
     d=None, # Store dir; `TMPL_DIR` if None
-    doced=None, # Names doc()'d during the baked round; the current conversation's doc-state if None
 ):
     "Write the template and its metadata to the store"
-    save_store(Path(d or TMPL_DIR), recs, dojo_cid(recs), doced)
+    save_store(Path(d or TMPL_DIR), recs, dojo_cid(recs))
 
 def load_template(
     d=None, # Store dir; `TMPL_DIR` if None
@@ -121,24 +118,21 @@ def build_template(
     d=None, # Store dir; `TMPL_DIR` if None
     cwd='.', # Project directory recorded in the records
 ):
-    "Convert a template dialog into the store; the dialog's `llmdojo.doced` metadata rides along for launch-time doc-state seeding"
+    "Convert a template dialog into the store"
     dlg = read_ipynb(str(src))
-    save_template(msgs2recs(dlg2msgs(dlg), key='claudedojo', cwd=str(cwd), model=None), d,
-        doced=nested_idx(dlg.meta, 'llmdojo', 'doced'))
+    save_template(msgs2recs(dlg2msgs(dlg), key='claudedojo', cwd=str(cwd), model=None), d)
 
 # %% ../nbs/00_claudedojo.ipynb #9069c1a2
 def capture_current(
     sid=None, # Session id or name; the project's newest transcript if None
     cwd=None, # Project directory; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
-    docs=None, # Documented names; derived from the round's `doc(...)` calls if None
 ):
     "Gate an existing session's clean round and store its template"
     selected = curate_dojo(load_sess(sid, cwd))
     if probs := is_clean(selected): raise ValueError('; '.join(probs))
-    if docs is None: docs = doced_names(_cells(selected))
-    dlg = canon_tmpl(mk_template(selected, doced=docs))
-    save_template(msgs2recs(dlg2msgs(dlg), key='claudedojo', model=None), d, doced=docs)
+    dlg = canon_tmpl(mk_template(selected))
+    save_template(msgs2recs(dlg2msgs(dlg), key='claudedojo', model=None), d)
     write_ipynb(dlg, Path(d or TMPL_DIR)/'template.ipynb')
     return dlg
 
@@ -190,10 +184,9 @@ def prep_dojo(
     cwd=None, # Project to start in; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
-    "Write the template session for `cwd`, register its completion id, seed its doc-state, and return the session id to resume"
+    "Write the template session for `cwd`, register its completion id, and return the session id to resume"
     recs,meta = _load_reg(d)
     sid = save_sess(recs, cwd=cwd, ts=True)
-    if ds := meta.get('doced'): _seed_doced(sid, ds)
     return sid
 
 # %% ../nbs/00_claudedojo.ipynb #bb20faff
@@ -202,14 +195,13 @@ def append_dojo(
     cwd=None, # Project directory; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
-    "Append the template round to session `sid` (e.g. after a compaction), re-seed doc-state, and return `sid` to resume"
+    "Append the template round to session `sid` (e.g. after a compaction), and return `sid` to resume"
     trecs,meta = _load_reg(d)
     sid,path = resolve_session(sid, cwd or '.')
     tail = load_recs(path)
     trecs = reid_recs(trecs, f'append:{sid}:{len(tail)}')   # fresh salt per append, so repeated splices never collide
     trecs[0]['message']['content'] = APPEND_PROMPT
     append_sess(trecs, sid, cwd, ts=True)
-    _seed_doced(sid, meta.get('doced') or [], merge=True)   # merge: after a compact the hook truncated the record, so this is just the round's list
     return sid
 
 # %% ../nbs/00_claudedojo.ipynb #cff4225e

@@ -5,7 +5,7 @@
 
 LLM coding agents imitate what their context shows far more reliably than what it tells: instructions decay over a session, demonstrations don’t. llmdojo turns that observation into tooling, for kernels served by [clikernel](https://github.com/AnswerDotAI/clikernel):
 
-- `llmdojo.rules`: session rules, applied live to every kernel cell through clikernel’s inspector hook. Routing rules teach the designed tool for each job, string-safety rules catch quoting mistakes, gating rules block the genuinely dangerous, and the `nodoc` rule tracks per-conversation doc-state so tooling docs actually get read before first use.
+- `llmdojo.rules`: session rules, applied live to every kernel cell through clikernel’s inspector hook. Routing rules teach the designed tool for each job, string-safety rules catch quoting mistakes, and gating rules block the genuinely dangerous.
 - `llmdojo.dojo`: a short scored practice round (the katas) an agent completes at session start, so its first real tool calls follow a demonstrated clean pass rather than being produced cold. Clean rounds mint a completion id that later sessions can present instead of replaying.
 - `llmdojo.claudedojo`: capture a clean round from a live Claude Code session, curate it into a deterministic template, and launch new sessions that *resume* it, so every session opens with the worked round already in context.
 - `llmdojo.codexdojo`: the Codex mirror - the same canonical template compiled to native Responses items, launching and re-warming Codex threads through app-server.
@@ -48,11 +48,9 @@ $ dojobuild
 
 Only a change to the round itself - its cells, not their outputs - needs a fresh capture: `claudedojo --capture` plays a scripted round headlessly, `codexdojo --capture` does the same in a Codex child, and `--current` on either stores a clean round an existing session already played. After reviewing a captured dialog, `dojobuild --claude` and `dojobuild --codex` compile it into each store without re-replaying.
 
-The bootstrap `doc()` reads (the cells before `dojo_start()`) live in two artifacts: `dojo_data/capture_prompt.md`, the script future captures replay, and the baked round in the canonical dialog itself. To change the set, update both, keeping each new `doc(x)` as its own cell placed after the `doc(clik, pysk, edsk)` one, then run `dojobuild`, which replays the new cell for a true output and recomputes the stored `doced` list. Updating only one leaves the demonstration and the capture script teaching different bootstraps.
+The bootstrap `doc()` reads (the cells before `dojo_start()`) live in two artifacts: `dojo_data/capture_prompt.md`, the script future captures replay, and the baked round in the canonical dialog itself. To change the set, update both, keeping each new `doc(x)` as its own cell placed after the `doc(clik, pysk, edsk)` one, then run `dojobuild`, which replays the new cell for a true output. Updating only one leaves the demonstration and the capture script teaching different bootstraps.
 
 ### State and templates
-
-Doc-state records which tool documentation the agent has read for a conversation. Closing and resuming restores that record; compaction clears it because the corresponding documentation has left the model’s context. A warm-start template seeds both doc-state and its clean-round completion receipt before the agent resumes.
 
 Completion receipts and templates carry the dojo tooling version. A version change invalidates old receipts and prevents an outdated template from launching. `dojo_version()` reports the installed version:
 

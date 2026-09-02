@@ -79,123 +79,18 @@ def test_rules():
     assert fires("sys.path.insert(0, 'x')", "sys_path")
     assert fires("sys.path.append('x')", "sys_path")
 
-    # hollow doc: a doc() that can't display reads nothing while appearing to
-    assert fires("doc(f)\nx = 1", "hollow_doc")
-    assert fires("for f in (a,b): doc(f)", "hollow_doc")          # bare in a loop body: never displays
-    assert not fires("doc(f)", "hollow_doc")
-    assert not fires("x = 1\ndoc(f)", "hollow_doc")
-    assert not fires("print(doc(f))\nx = 1", "hollow_doc")        # printed is displayed
-    assert not fires("x = doc(f)", "hollow_doc")                  # assigned: consumption unknown, stay quiet
-    assert not fires("def g():\n    doc(f)", "hollow_doc")        # inside a def: there for a reason
-
 
 def test_session_rules(monkeypatch):
-    "Cross-cell rules: piecemeal skill imports, doc-before-first-call, and re-nagging on every miss."
+    "Cross-cell rules: piecemeal skill imports, and re-nagging on every miss."
     s = Session()
     assert fires("from rgapi import rg", "piecemeal", s)          # rgapi has a .skill module
     assert not fires("from rgapi.skill import *", "piecemeal", s)
     assert not fires("from pathlib import Path", "piecemeal", s)  # no pathlib.skill: fine
     assert not fires("from pyskills import list_pyskills, doc", "piecemeal", s)  # the blessed bootstrap line
-    assert not fires("from llmdojo.rules import doced, forget_doced", "piecemeal", s)  # the prescribed session-reset line
-
-    # doc(f) before first call: rg resolves to an editable-install function in this session
-    import rgapi.skill  # ensure resolvable
-    ns = {"rg": rgapi.skill.rg}
-    assert fires("rg('x', '.')", "nodoc", Session(ns=ns))
-    s3 = Session(ns=ns)
-    assert not fires("doc(rg)", "nodoc", s3)
-    assert not fires("rg('x', '.')", "nodoc", s3)                 # doc'd first: quiet
-    notes = [f.note for f in scan("rg('x', '.')", Session(ns=ns))]
-    assert any('doc(rg)' in n for n in notes)                      # the note names the specific function
-    assert not fires("len('abc')", "nodoc", Session(ns=ns))       # stdlib: quiet
-    assert not fires("_helper()", "nodoc", Session(ns={"_helper": rgapi.skill.rg}))  # private names are internals, not curated API
-    # a call in the transformed tree but absent from the raw cell was injected by IPython (%run -> get_ipython().run_line_magic): never flagged
-    assert not fires("%run x.py", "nodoc", Session(ns={"get_ipython": rgapi.skill.rg}))
-    assert fires("get_ipython()", "nodoc", Session(ns={"get_ipython": rgapi.skill.rg}))  # genuinely typed: still flagged
-    import fastcore.basics
-    assert not fires("store_attr()", "nodoc", Session(ns={"store_attr": fastcore.basics.store_attr}))  # fastcore is ambient vocabulary, not tooling
-    import llmdojo.dojo as dj
-    assert not fires("dojo_score()", "nodoc", Session(ns={"dojo_score": dj.dojo_score}))  # the dojo interface is the blessed route
-    # __main__ functions were authored in-session: never need doc(), even when a Path __file__ leaks into the namespace
-    import sys, types
-    from pathlib import Path
-    fake_main = types.ModuleType('__main__')
-    fake_main.__file__ = Path('/tmp/proj/nb.py')
-    monkeypatch.setitem(sys.modules, '__main__', fake_main)
-    def mainfn(): pass
-    mainfn.__module__ = '__main__'
-    assert not fires("mainfn()", "nodoc", Session(ns={"mainfn": mainfn}))
-    # exotic loaders can set any module's __file__ to a Path: coerced, not crashed
-    fakemod = types.ModuleType('fakemod')
-    fakemod.__file__ = Path('/tmp/proj/fakemod.py')
-    monkeypatch.setitem(sys.modules, 'fakemod', fakemod)
-    def toolfn(): pass
-    toolfn.__module__ = 'fakemod'
-    assert fires("toolfn()", "nodoc", Session(ns={"toolfn": toolfn}))
-
-    # doc(f) in a loop or comprehension over literal names docs each of them
-    s5 = Session(ns={"rg": rgapi.skill.rg, "fd": rgapi.skill.fd})
-    assert not fires("for f in (rg, fd): print(doc(f))", "nodoc", s5)
-    assert not fires("rg('x', '.')", "nodoc", s5)
-    assert not fires("fd('.')", "nodoc", s5)
-    s6 = Session(ns={"rg": rgapi.skill.rg, "fd": rgapi.skill.fd})
-    assert not fires("[doc(f) for f in (rg, fd)]", "nodoc", s6)
-    assert not fires("rg('x', '.')", "nodoc", s6)
-
-    # doc(mod.func) registers the bare name the call site uses
-    s10 = Session(ns={"rg": rgapi.skill.rg})
-    assert not fires("doc(rgapi.skill.rg)", "nodoc", s10)
-    assert not fires("rg('x', '.')", "nodoc", s10)
-    s11 = Session(ns={"rg": rgapi.skill.rg, "fd": rgapi.skill.fd})
-    assert not fires("for f in (rgapi.skill.rg, fd): print(doc(f))", "nodoc", s11)
-    assert not fires("rg('x', '.')\nfd('.')", "nodoc", s11)
-    # a hollow doc() must not tick the doc-state box: no credit from a blocked cell
-    s12 = Session(ns={"rg": rgapi.skill.rg})
-    assert fires("doc(rg)\n1+1", "hollow_doc", s12)
-    assert fires("rg('x', '.')", "nodoc", s12)
-    s13 = Session(ns={"rg": rgapi.skill.rg, "fd": rgapi.skill.fd})
-    assert fires("for f in (rg, fd): doc(f)", "hollow_doc", s13)
-    assert fires("rg('x', '.')", "nodoc", s13)
-
-    # doced(f='key') in the same cell as the use: correct key credits at scan time, wrong key doesn't
-    from pyskills import doc_key
-    s14 = Session(ns={"rg": rgapi.skill.rg})
-    assert not fires(f"doced(rg='{doc_key(rgapi.skill.rg)}'); rg('x', '.')", "nodoc", s14)
-    s15 = Session(ns={"rg": rgapi.skill.rg})
-    assert fires("doced(rg='0000'); rg('x', '.')", "nodoc", s15)
-
-    # an instance documented by its class: doc(Klass) covers calls to it, and the class key declares it
-    class Caller:
-        def __call__(self, x): return x
-    Caller.__module__ = 'rgapi.skill'
-    s16 = Session(ns={"g": Caller(), "Caller": Caller})
-    assert fires("g('x')", "nodoc", s16)
-    assert not fires("doc(Caller)", "nodoc", s16)
-    assert not fires("g('x')", "nodoc", s16)                      # the class doc covers the instance
-    s17 = Session(ns={"g": Caller()})
-    assert not fires(f"doced(g='{doc_key(Caller)}'); g('x')", "nodoc", s17)
-    class Dyn(Caller):
-        def __dir__(self): return []
-    Dyn.__module__ = 'rgapi.skill'
-    s18 = Session(ns={"api": Dyn(), "Dyn": Dyn})
-    assert not fires("doc(Dyn)", "nodoc", s18)
-    assert fires("api('x')", "nodoc", s18)                        # a dynamic surface: the instance owns its doc
-
     # re-nag: findings repeat on every offending cell until the habit is fixed
     s4 = Session()
     assert fires("Path('a.py').read_text()", "read_file", s4)
     assert fires("Path('b.py').read_text()", "read_file", s4)
-    s7 = Session(ns=ns)
-    assert fires("rg('x', '.')", "nodoc", s7)
-    assert fires("rg('y', '.')", "nodoc", s7)                     # keeps nagging until doc'd
-    assert fires("doc(rg)\nrg('x', '.')", "hollow_doc", s7)       # doc-then-call in one cell: the doc never displays
-    assert fires("rg('x', '.')", "nodoc", s7)                     # ...so it credits nothing
-    assert not fires("doc(rg)", "nodoc", s7)                      # a displayed doc() ends the nag
-    assert not fires("rg('x', '.')", "nodoc", s7)
-    s8 = Session(ns=ns)
-    assert fires("doced(rg='0000')\nrg('x', '.')", "nodoc", s8)   # the scan credits nothing: only runtime doced(), key-verified, records
-    import llmdojo.rules as cr
-    assert not fires("doced(x='0000')\nforget_doced()", "nodoc", Session(ns={"doced": cr.doced, "forget_doced": cr.forget_doced}))  # the prescribed interfaces are exempt
 
 
 def test_notes_single_way():
@@ -206,84 +101,12 @@ def test_notes_single_way():
         for word in ("unless", "sometimes", "usually"): assert word not in r.note.lower()
 
 
-def test_doced_state(tmp_path, monkeypatch):
-    "doced survives worker restarts via a ppid-keyed state file; doced() declares, key-verified; forget_doced() resets; stale files swept on save; external writes win"
-    monkeypatch.setenv("LLMDOJO_STATE_DIR", str(tmp_path))
-    import os, llmdojo.rules as cr
-    stale = tmp_path/'doced'/'99999.json'
-    stale.parent.mkdir(parents=True)
-    stale.write_text('[]')
-    os.utime(stale, (0, 0))
-    insp = cr.make_inspector()
-    insp(None, "doc(rg)")
-    assert not stale.exists()                       # abandoned session state swept on save
-    cr.make_inspector()                             # a fresh worker in the same session
-    assert 'rg' in cr._LIVE.doced                   # state survived the restart
-    import rgapi.skill
-    from pyskills import doc_key
-    fd,ls,rg = rgapi.skill.fd, rgapi.skill.ls, rgapi.skill.rg
-    assert 'recorded: fd' in cr.doced(fd=doc_key(fd))   # a right key is recorded
-    import pytest
-    with pytest.warns(UserWarning, match='key mismatch'):
-        assert not cr.doced(ls='0000')                  # a wrong key is rejected loudly, not recorded
-    cr.make_inspector()
-    assert {'rg','fd'} <= set(cr.doced()) and 'ls' not in cr.doced()
-    cr.forget_doced()
-    cr.make_inspector()
-    assert not cr._LIVE.doced                       # post-compaction reset: everything needs doc() again
-    cr.doced(rg=doc_key(rgapi.skill.rg))
-    cr._doced_file().write_text('["fd"]')           # an external writer (the compaction hook) owns the file
-    assert cr.doced() == ['fd']                     # the file is the source of truth: external writes win
-    monkeypatch.setenv("CODEX_THREAD_ID", "codex-123")
-    monkeypatch.setattr(cr, "_HOST", None)
-    assert cr._doced_file().name == 'codex-123.json'
-    monkeypatch.delenv("CODEX_THREAD_ID")
-    monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
-    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "sid-123")
-    monkeypatch.setattr(cr, "_HOST", None)
-    assert cr._doced_file().name == 'sid-123.json'  # per-spawn session id when no transcript is found
-    monkeypatch.delenv("CLAUDE_CODE_SESSION_ID")
-    monkeypatch.setattr(cr, "_HOST", None)
-    assert cr._doced_file().name == f'{os.getppid()}.json'
-    home = tmp_path/'home'
-    tdir = home/'.claude'/'projects'/'-my-proj'
-    tdir.mkdir(parents=True)
-    (tdir/'aaa.jsonl').write_text('')
-    (tdir/'bbb.jsonl').write_text('')
-    os.utime(tdir/'aaa.jsonl', (0, 0))
-    monkeypatch.setenv("HOME", str(home))
-    monkeypatch.setenv("CLAUDE_PROJECT_DIR", "/my/proj")
-    monkeypatch.setattr(cr, "_HOST", None)
-    assert cr._doced_file().name == 'bbb.json'      # most recent transcript: the conversation that spawned this worker
-
-
-def test_note_tag(tmp_path, monkeypatch):
-    "Each rule picks its wrapper tag: nodoc renders as <warn>, others default to <note>."
-    monkeypatch.setenv("LLMDOJO_STATE_DIR", str(tmp_path))
-    import IPython, rgapi.skill, llmdojo.rules as cr
-    class _FakeIp: user_ns = {'rg': rgapi.skill.rg}
+def test_note_tag(monkeypatch):
+    "Findings render in their rule's wrapper tag; a clean cell renders nothing."
+    import IPython, llmdojo.rules as cr
+    class _FakeIp: user_ns = {}
     monkeypatch.setattr(IPython, 'get_ipython', lambda: _FakeIp)
     insp = cr.make_inspector()
-    out = insp(None, "rg('x', '.')")
-    assert out.startswith('<warn>') and '</warn>' in out and 'doc(rg)' in out
-    insp(None, "doc(rg)")
-    assert insp(None, "rg('y', '.')") == ''          # doc'd: quiet
-    cr._doced_file().write_text('[]')                # the compaction hook truncates while the kernel lives on
-    assert 'doc(rg)' in insp(None, "rg('z', '.')")   # reloaded per cell: nodoc re-fires
     out = insp(None, "Path('a.py').read_text()")
     assert out.startswith('<note>') and '</note>' in out
-
-
-def test_resolve_host_prefers_sid(tmp_path, monkeypatch):
-    from pathlib import Path
-    from llmdojo.rules import _resolve_host
-    monkeypatch.delenv('CODEX_THREAD_ID', raising=False)
-    monkeypatch.setenv('CLAUDE_CODE_SESSION_ID', 'mysid')
-    monkeypatch.setenv('CLAUDE_PROJECT_DIR', '/proj/x')
-    monkeypatch.setattr(Path, 'home', classmethod(lambda cls: tmp_path))
-    d = tmp_path/'.claude'/'projects'/'-proj-x'
-    d.mkdir(parents=True)
-    (d/'othersid.jsonl').write_text('{}\n')
-    assert _resolve_host() == 'mysid'        # the launching session's id, not whichever session wrote the project transcript last
-    monkeypatch.delenv('CLAUDE_CODE_SESSION_ID')
-    assert _resolve_host() == 'othersid'     # fallback when only the project dir is known: newest transcript
+    assert insp(None, "x = 1") == ''

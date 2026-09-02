@@ -8,8 +8,7 @@ Docs: https://AnswerDotAI.github.io/llmdojo/tmpl.html.md"""
 
 # %% auto #0
 __all__ = ['TMPL_PROMPT', 'APPEND_PROMPT', 'GATE_FORBID', 'CAPTURE_SCRIPT', 'DOJO_CANON', 'find_cid', 'save_store', 'load_store',
-           'load_reg', 'round_gates', 'capture_slice', 'doced_names', 'canon_tmpl', 'refresh_template', 'launch_config',
-           'main']
+           'load_reg', 'round_gates', 'capture_slice', 'canon_tmpl', 'refresh_template', 'launch_config', 'main']
 
 # %% ../nbs/02_tmpl.ipynb #5d058b1b
 import json, os, re, subprocess, sys, tempfile, tomllib
@@ -20,7 +19,6 @@ from clikernel.cli import _MARKER as _CLIK_MARKER
 from aidialog.ipynb import read_ipynb, write_ipynb
 from aidialog.hist import reply2dlg, dlg2reply, _parse_call
 from aidialog.dialog import code_output, prompt_output
-from .rules import _state_root, _docnames
 
 # %% ../nbs/02_tmpl.ipynb #159f53fb
 TMPL_PROMPT = "Bootstrap and complete the dojo and tell me when you're ready."
@@ -44,16 +42,12 @@ def save_store(
     d, # Store dir
     items, # Native template items or records
     cid, # The round's completion id receipt
-    doced=None, # Names doc()'d during the baked round; the current conversation's doc-state if None
 ):
     "Write a template and its metadata to the store at `d`"
-    if doced is None:
-        from llmdojo.rules import doced as _cur
-        doced = _cur()
     d = Path(d)
     d.mkdir(parents=True, exist_ok=True)
     (d/'template.jsonl').write_text(''.join(json.dumps(obj2dict(x))+'\n' for x in items))
-    (d/'meta.json').write_text(json.dumps(dict(cid=cid, v=_dojo_v(), doced=list(doced))))
+    (d/'meta.json').write_text(json.dumps(dict(cid=cid, v=_dojo_v())))
 
 def load_store(
     d, # Store dir
@@ -74,15 +68,6 @@ def load_reg(
     from llmdojo.dojo import register_completion
     register_completion(meta['cid'], meta['v'])
     return items,meta
-
-# %% ../nbs/02_tmpl.ipynb #6de89054
-def _seed_doced(sid, names, merge=False):
-    "Make the baked round's doc-state true for conversation `sid`"
-    d = _state_root()/'doced'
-    d.mkdir(parents=True, exist_ok=True)
-    f = d/f'{sid}.json'
-    if merge and f.exists(): names = set(names) | set(json.loads(f.read_text()))
-    f.write_text(json.dumps(sorted(names)))
 
 # %% ../nbs/02_tmpl.ipynb #d4559c82
 _START_RE = r'^dojo_start\(\s*\)\s*$'
@@ -125,17 +110,6 @@ def _turns(
     xs = L(xs)
     edges = L([0, *xs.argwhere(isprompt), len(xs)])
     return L(xs[s:e] for s,e in edges.pairwise())
-
-# %% ../nbs/02_tmpl.ipynb #c5988523
-def doced_names(
-    cells, # Kernel cell sources
-):
-    "Names documented by standalone `doc(...)` calls in `cells`, in both spellings"
-    docs = set()
-    for c in cells:
-        for m in re.finditer(r'(?m)^\s*doc\(([^()\n]+)\)\s*$', c):
-            for name in m.group(1).split(','): docs.update(_docnames(name.strip()))
-    return sorted(docs)
 
 # %% ../nbs/02_tmpl.ipynb #0b76b9f7
 def _replay_cells(
@@ -183,7 +157,7 @@ def refresh_template(
     src, # Path to a template dialog .ipynb
     dst=None, # Where to write the refreshed dialog; `src` if None
 ):
-    "Replay `src`'s kernel cells through a fresh clikernel, splice in current outputs, refresh `doced`, and gate; writes and returns the refreshed (canonicalized) dialog"
+    "Replay `src`'s kernel cells through a fresh clikernel, splice in current outputs, and gate; writes and returns the refreshed (canonicalized) dialog"
     from llmdojo.dojo import _run_dir
     dlg = read_ipynb(str(src))
     pmsg = dlg.messages[0]
@@ -199,7 +173,6 @@ def refresh_template(
     for m,(name,_),o in zip(codes, calls, outs): m.output = code_output(o or f'({name} completed with no output)')
     if probs := round_gates(cells, outs, ' '.join(m.content for m in sub.messages if m.msg_type=='note')): raise ValueError('; '.join(probs))
     pmsg.output = prompt_output(dlg2reply(sub).replace(str(_run_dir()), DOJO_CANON))   # canonicalize: the stored artifact reads the same everywhere
-    dlg.meta['llmdojo'] = dict(doced=doced_names(cells))
     write_ipynb(dlg, str(dst or src))
     return dlg
 
