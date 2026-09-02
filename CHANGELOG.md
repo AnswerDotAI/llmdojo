@@ -2,6 +2,13 @@
 
 <!-- do not remove -->
 
+## 0.0.6
+
+### New Features
+
+- Remove doc-state tracking and the `nodoc` rule ([#26](https://github.com/AnswerDotAI/llmdojo/pull/26)), thanks to [@jph00](https://github.com/jph00)
+
+
 ## 0.0.5
 
 ### New Features
