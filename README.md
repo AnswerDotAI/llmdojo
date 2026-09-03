@@ -9,6 +9,7 @@ LLM coding agents imitate what their context shows far more reliably than what i
 - `llmdojo.dojo`: a short scored practice round (the katas) an agent completes at session start, so its first real tool calls follow a demonstrated clean pass rather than being produced cold. Clean rounds mint a completion id that later sessions can present instead of replaying.
 - `llmdojo.claudedojo`: capture a clean round from a live Claude Code session, curate it into a deterministic template, and launch new sessions that *resume* it, so every session opens with the worked round already in context.
 - `llmdojo.codexdojo`: the Codex mirror - the same canonical template compiled to native Responses items, launching and re-warming Codex threads through app-server.
+- `llmdojo.claudesub`: spawn a headless Claude child on the current session’s compacted history, in its own kernel - a cheap, safe subagent for Claude Code.
 
 ## Usage
 
@@ -37,6 +38,17 @@ After compaction, `-r` appends the worked round to the existing conversation ins
 $ claudedojo -r
 $ codexdojo -r
 ```
+
+### Spawn a subagent
+
+From a Claude Code session, `claudesub` writes a session holding only this conversation’s compacted history, resumes it headlessly with a directive, and prints the child’s text as it works, then a footer naming its session id. The child runs in its own kernel. Run it as a background Bash call, or under a Monitor to see its progress as events:
+
+``` sh
+$ claudesub 'directive'
+$ claudesub -r <child-session-id> 'answer'
+```
+
+The second form continues a child that stopped to ask, keeping its context. `--cwd=<dir>` works from another project directory, and unrecognized `--flag=value` arguments pass through to `claude`.
 
 ### Update the templates
 
