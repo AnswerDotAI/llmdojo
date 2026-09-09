@@ -1,6 +1,8 @@
 """The template layer shared by claudedojo and codexdojo
 
-The claudedojo and codexdojo launchers are mirror images: each captures a clean dojo round, gates it, stores it beside its metadata, and splices it into sessions at launch time. They differ only in the record shape their host uses (Claude Code transcript records vs Codex Responses items) and in transport. Everything representation-independent lives here instead of twice over there: the shared prompts and gate phrases, the completion-id receipt, the store layout, the launch-time loader and doc-state seeding, the content gates, and the round's structural boundaries. A backend contributes only its extractors, its transport, and its capture child.
+`claudedojo` and `codexdojo` both capture a clean practice round and add it to later sessions. This module provides their shared prompts, completion receipts, storage, and validation. It also selects the round's boundaries, refreshes recorded outputs, and reads launch configuration.
+
+Claude Code stores transcript records. Codex stores Responses items. Each backend supplies the conversion between its records and the shared checks. Backends also manage their own transport and capture process.
 
 Docs: https://AnswerDotAI.github.io/llmdojo/tmpl.html.md"""
 
@@ -91,7 +93,7 @@ def round_gates(
 def capture_slice(
     cells, # Kernel cell sources of a conversation's calls, in order
 ):
-    "The `(first, last)` cell indices of the captured round: bootstrap docs through the first score of the last dealt round"
+    "Return inclusive bootstrap-to-score indices for the last dealt round."
     starts = [i for i,c in enumerate(cells) if re.match(_START_RE, c)]
     if not starts: raise ValueError('no dojo_start() call')
     start = starts[-1]
@@ -146,7 +148,7 @@ def canon_tmpl(
     dlg, # A template dialog whose reply holds a round
     canon=DOJO_CANON, # Canonical spelling for the round's run-dir path
 ):
-    "Rewrite the round's run-dir path (read from its own `%cd` cell) to `canon` throughout the reply, so stored templates read the same on every machine"
+    "Find the run directory in the reply's `%cd` cell and replace it throughout with `canon`."
     pm = dlg.messages[0]
     txt = pm.ai_res
     rd = first(re.findall(r"%cd ([^\s'\"\\]+)", txt))
@@ -157,14 +159,17 @@ def refresh_template(
     src, # Path to a template dialog .ipynb
     dst=None, # Where to write the refreshed dialog; `src` if None
 ):
-    "Replay `src`'s kernel cells through a fresh clikernel, splice in current outputs, and gate; writes and returns the refreshed (canonicalized) dialog"
+    "Replay template cells and replace their outputs. Validate, canonicalize, write, and return the dialog."
     from llmdojo.dojo import _run_dir
     dlg = read_ipynb(str(src))
     pmsg = dlg.messages[0]
     sub = reply2dlg(pmsg)
     codes = [m for m in sub.messages if m.msg_type=='code']
     calls = [_parse_call(m.content) for m in codes]
-    if bad := first(m.content for m,c in zip(codes,calls) if not (c and c[1].get('code'))): raise ValueError(f'not a kernel call: {bad}')
+    for m,c in zip(codes, calls):
+        valid = (c and c[0] in ('mcp__clikernel__py', 'tools.mcp__clikernel__py')
+            and isinstance(c[1].get('code'), str) and c[1]['code'].strip())
+        if not valid: raise ValueError(f'not a kernel call: {m.content}')
     cells = [c[1]['code'].replace(DOJO_CANON, str(_run_dir())) for c in calls]   # localize: the round plays in the real run dir
     with tempfile.TemporaryDirectory(prefix='dojorefresh_') as td:
         proj = Path(td)

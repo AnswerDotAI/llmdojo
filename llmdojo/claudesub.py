@@ -21,14 +21,14 @@ from .tmpl import launch_config
 def parent_sid(
     cwd=None, # Project directory; the current directory if None
 ):
-    "The launching session, from `CLAUDE_CODE_SESSION_ID`; an error rather than a guess when it is unset or names no transcript"
+    "Return the launching session ID. Raise if it is unset or has no transcript."
     sid = os.environ.get('CLAUDE_CODE_SESSION_ID')
     if not sid: raise RuntimeError('CLAUDE_CODE_SESSION_ID is unset: claudesub runs from inside a Claude Code session')
     if not (sess_dir(cwd)/f'{sid}.jsonl').exists(): raise FileNotFoundError(f'No transcript for session {sid} under {sess_dir(cwd)}')
     return sid
 
 def dojo_cid():
-    "The newest clean-round completion id minted under the current dojo version, or None"
+    "Return the newest completion ID for this dojo version, or None."
     v = dojo_version()
     ids = [(o['t'],k) for k,o in _completions().items() if o.get('v')==v]
     return max(ids)[1] if ids else None
@@ -51,7 +51,7 @@ def sub_cmd(
     cid=None, # Dojo completion id to hand the child; `dojo_cid()` if None
     extra=(), # Further `claude` arguments, after the standing ones from `launch_config`
 ):
-    "argv for the headless child: resume `sid` with `directive`, streaming events as JSON lines; refuses without a clean-round id, since a child never plays the round"
+    "Build a headless resume command with streaming JSON output. Require a completion ID."
     cid = cid or dojo_cid()
     if not cid: raise RuntimeError('No clean dojo round is on record for this tooling version: play one in the parent session first')
     return ['claude', '-p', directive, f'--resume={sid}', '--output-format=stream-json', '--verbose',
@@ -88,7 +88,7 @@ def main(
     Quiet:bool=False, # Print only the child's final report, not its progress text
     cwd:str=None, # Project directory to work from, for the parent lookup, the child session, and the child itself; the current directory if None
 ):
-    "Spawn a headless Claude child on this session's compacted history and stream its text; unrecognized `--flag=value` args go to `claude`"
+    "Start or resume a headless Claude child and print its progress and result."
     if cwd: os.chdir(cwd)
     s = Resume or prep_sub()
     if sid: return print(s)

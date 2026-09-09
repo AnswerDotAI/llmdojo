@@ -40,7 +40,7 @@ DROP_ATT = ('hook_success', 'task_reminder')
 def capture_span(
     recs, # Session records, e.g. from `load_sess`
 ):
-    "The thread records of the captured round: bootstrap docs through the first score of the last dealt round"
+    "Select the latest dealt round from its bootstrap call through its first score result."
     t = strip_think(sess_thread(recs))
     calls = [(k, nested_idx(b,'input','code') or '', b['id']) for k,r in enumerate(t) for b in _blocks(r) if b.get('type')=='tool_use']
     i,j = capture_slice([c for _,c,_ in calls])
@@ -50,7 +50,7 @@ def capture_span(
 def curate_dojo(
     recs, # Session records containing a played round, e.g. from `capture_dojo`'s child
 ):
-    "The reproducible records of the captured round: its span, minus mid-round prompts, attachments, and failed calls, deterministically re-id'd"
+    "Remove prompts, transient attachments, and failed-call records from the round. Assign deterministic IDs."
     t = capture_span(recs)
     bad = {b['tool_use_id'] for r in t for b in _blocks(r) if _is_err(b)}
     def _keep(r):
@@ -103,7 +103,8 @@ def save_template(
     recs, # Curated template records
     d=None, # Store dir; `TMPL_DIR` if None
 ):
-    "Write the template and its metadata to the store"
+    "Check the template and write it with its metadata to the store"
+    if probs := is_clean(recs): raise ValueError('; '.join(probs))
     save_store(Path(d or TMPL_DIR), recs, dojo_cid(recs))
 
 def load_template(
@@ -129,9 +130,9 @@ def capture_current(
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
     "Gate an existing session's clean round and store its template"
-    selected = curate_dojo(load_sess(sid, cwd))
+    selected = capture_span(load_sess(sid, cwd))
     if probs := is_clean(selected): raise ValueError('; '.join(probs))
-    dlg = canon_tmpl(mk_template(selected))
+    dlg = canon_tmpl(mk_template(curate_dojo(selected)))
     save_template(msgs2recs(dlg2msgs(dlg), key='claudedojo', model=None), d)
     write_ipynb(dlg, Path(d or TMPL_DIR)/'template.ipynb')
     return dlg
@@ -139,7 +140,7 @@ def capture_current(
 # %% ../nbs/00_claudedojo.ipynb #f4e0e6c4
 async def capture_dojo(
     d=None, # Template store dir; `TMPL_DIR` if None
-    model='fable', # Model for the capture run; the only one smart enough for clean rounds
+    model='fable', # Model for the capture run
     effort='medium', # Adaptive thinking effort for the capture run ('low'/'medium'/'high')
     attempts=3, # Gated attempts before giving up
     budget=10.0, # Max USD per attempt
@@ -177,14 +178,14 @@ async def capture_dojo(
 
 # %% ../nbs/00_claudedojo.ipynb #67610ec0
 def _load_reg(d):
-    "The loaded packaged store, registered, via the shared `load_reg`"
+    "Load the chosen store and register its completion receipt."
     return load_reg(d, TMPL_DIR, 'claudedojo')
 
 def prep_dojo(
     cwd=None, # Project to start in; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
-    "Write the template session for `cwd`, register its completion id, and return the session id to resume"
+    "Register the template receipt and write a fresh session. Return its ID."
     recs,meta = _load_reg(d)
     sid = save_sess(recs, cwd=cwd, ts=True)
     return sid
@@ -221,7 +222,7 @@ def compact_dojo(
     cwd=None, # Project directory; the current directory if None
     d=None, # Template store dir; `TMPL_DIR` if None
 ):
-    "Synthetically compact a session with the compact DSL (previous dojo rounds removed first), then append the template round; returns the session id"
+    "Compact the conversation without prior dojo turns where possible, then append a fresh round. Return its ID."
     sid,_ = resolve_session(sid, cwd or '.')
     recs = load_sess(sid, cwd)
     if len(recs) > len(stripped := strip_dojo(recs)) > 0: save_sess(stripped, sid, cwd)   # a round-only session has nothing else to compact: leave it whole
@@ -235,12 +236,12 @@ def main(
     Resume:bool=False, # Append the round to an existing session after a compaction, then resume it
     Compact:bool=False, # Synthetically compact the session with the compact DSL, then append the round and resume
     sid:bool=False, # Print the prepared session id instead of launching claude
-    capture:bool=False, # Play a scripted round headlessly (Agent SDK), gate it with is_clean, and store it
+    capture:bool=False, # Play a scripted round through Claude Code, check it with is_clean, and store it
     current:bool=False, # Store the clean round an existing session already played (`capture_current`)
-    capture_model:str='fable', # Model for --capture; the only one smart enough for clean rounds
+    capture_model:str='fable', # Model for --capture
     capture_effort:str='medium', # Adaptive thinking effort for --capture ('low'/'medium'/'high')
 ):
-    "Prepare a session opening with the worked round and launch `claude` on it; template maintenance is `dojobuild`"
+    "Prepare a session with the worked round and launch Claude Code."
     if capture: return asyncio.run(capture_dojo(model=capture_model, effort=capture_effort))
     if current: return capture_current(sess)
     if Resume:

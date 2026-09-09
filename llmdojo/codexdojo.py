@@ -212,7 +212,8 @@ def save_template(
     items, # Curated native template items
     d=None, # Store dir; `TMPL_DIR` if None
 ):
-    "Write the template and its metadata to the store"
+    "Check the template and write it with its metadata to the store"
+    if probs := is_clean(items): raise ValueError('; '.join(probs))
     save_store(Path(d or TMPL_DIR), items, dojo_cid(items))
 
 # %% ../nbs/01_codexdojo.ipynb #80892363
