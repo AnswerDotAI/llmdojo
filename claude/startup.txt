@@ -3,6 +3,3 @@ Python project detected. Imports are loaded, including rg/fd/ls from rgapi. If t
     doc(dsk, exh, rgsk)
     doc(acp)
     list_pyskills()
-Then run this:
-    dojo_start()
-The dojo line is REQUIRED in every session, even ones that only read files or search directories: complete every task it prints before any other work. If a completion id from a clean round is in your context, dojo_start(id) replays it instantly.
