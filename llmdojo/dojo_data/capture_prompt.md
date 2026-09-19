@@ -20,17 +20,17 @@ Run exactly the numbered cells below, in order, one per kernel call, with no ext
 
 ```python
 file_exhash('core.py',
-    (r"13|6816|", "s", r"\bcfg\b", "config"),
-    (r"12|8bd5|", "s", r"\bcfg\b", "config"),
-    (r"9|d643|", "s", r"\bcfg\b", "config"),
-    (r"8|7521|", "d"),
-    (r"3|97bb|", "s", "imperial", "metric"),
+    (r"13|gW|", "s", r"\bcfg\b", "config"),
+    (r"12|vV|", "s", r"\bcfg\b", "config"),
+    (r"9|ZD|", "s", r"\bcfg\b", "config"),
+    (r"8|Uh|", "d"),
+    (r"3|e7|", "s", "imperial", "metric"),
 )
 ```
 
 14. `# kata 3`
 15. `lnhashview_file('tmpl.py')`
-16. A cell whose first line is `%%exhash tmpl.py 4|dad2|,13|913e| c` and whose remaining lines are the replacement function from kata 3's card, byte for byte.
+16. A cell whose first line is `%%exhash tmpl.py 4|rS|,13|E-| c` and whose remaining lines are the replacement function from kata 3's card, byte for byte.
 17. `# kata 4`
 18. `doc(cell_exhash)`
 19. `find_msgs(header_section='Retries', dlg='nbs/01_api.ipynb')`
