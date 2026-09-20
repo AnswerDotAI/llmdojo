@@ -7,13 +7,13 @@ view_dlg('nbs/01_api.ipynb')
 ```
 > <dialog name="01_api"><markdown id="173e616a"># weather ¶ > Fetch and summarize daily weather data from the open-meteo API</markdown><code id="348b011f">#| export ¶ import httpx</code><markdown id="c44ebb7f">We don't use `requests` here. It has no async support, and its API is synchronous throughout. It also opens a new connection per call unless you create and close a Session yourself, so there is no connection pooling by default. This newer client keeps the same API shape and fixes both.</markdown><code id="e31728e2">#| export ¶ def fetch_daily(lat, lon): ¶ "Fetch one day of weather for `lat`,`lon`" ¶ r = httpx.get('https://api.open-meteo.com/v1/forecast', params=dict(latitude=lat, longitude=lon, daily='temperature_2m_max')) ¶ return r.json()['daily']</code><markdown id="942a7c41">`fetch_daily` returns the raw `daily` block, one entry per requested field.</markdown><code id="4658cca5">d = httpx.get('https://api.open-meteo.com/v1/forecast?latitude=52&longitude=0&daily=temperature_2m_max').json() ¶ list(d)</code><markdown id="1f7ecdfb">## Retries</markdown><markdown id="d4f97726">On a connection error, `fetch_daily` retries the request twice before giving up.</markdown><code id="85df61e8">fetch_daily(52, 0)['time']</code></dialog>
 ```python
-# Kata 1 answered; on to the file edits.
+# The note beside the import gives the reason. On to the file edits.
 ```
-> (mcp__clikernel__py completed with no output)
+> (mcp__clikernel__exec completed with no output)
 ```python
 doc(lnhashview_file, file_exhash)
 ```
-> def lnhashview_file( ¶ path:str, start:int=None, end:int=None ¶ )->LnhashView:"""Return lines formatted as space-padded ``lineno|hash|content`` for file at ``path`` (expands ``~``). Optional 1-based ``start``/``end`` filter the range; ``end`` past EOF is clamped.""" ¶ def file_exhash( ¶ path:str, *cmds:tuple, sw:int=4, inplace:bool=True ¶ ):"""Read files and notebook cells, apply file-aware exhash commands, and return per-target results or a combined diff. ¶ Command tuples are the ``exhash.skill`` module docstring's; ``path`` (expands ``~``, as do qualified addresses) is the ¶ default file context for unqualified addresses. Prefix source address ¶ strings, and ``m``/``t`` destination strings, with ``path:`` to target ¶ another file, or ``path.ipynb:cellid:`` to target one notebook cell's ¶ source (``cellid`` may be an exact id or unique prefix):: ¶ ("src/a.py:10|qq|,20|u7|", "m", "src/b.py:$") ¶ A range must stay within one file or cell. An ``m``/``t`` destination that ¶ omits the prefix inherits it from the *first address*, never from ``path``: ¶ a bare destination like ``$`` targets the source's own file, even when ¶ ``path`` names another. So whenever the source is qualified, qualify the ¶ destination too. Escape literal colons in filenames as ``\:`` and literal ¶ backslashes as ``\\``. Missing files are treated as empty only for commands ¶ valid against an empty buffer (``0|AA|`` with ``a``/``i``, or as an ¶ ``m``/``t`` destination); cells are never created: a cell target must ¶ already exist, or the command raises ``KeyError``. ¶ By default (``inplace=True``) write changed files only after every command ¶ succeeds and return the combined diff string (display-truncated via ¶ ``truncate_diff``); if any command fails, write nothing. Lines addressed by ``p`` ¶ are reported too: a ``p``-only call writes nothing and returns those lines as a bare, ¶ untruncated ``lnhashview``, and printed rows in a target that also changed ride in its ¶ diff as context. With more than one reported target, each printed-only group is headed ¶ by ``# file <path>`` or ``# cell <id>``. Pass ``inplace=False`` to preview instead: a ¶ ``FileSetEditResult`` is returned with ``files``, ``changed``, ``default_path``, ¶ ``res[path]`` (cell targets under ``'path:cellid'``), and ``res.format_diff(context=1)``."""
+> def lnhashview_file( ¶ path:str, start:int=None, end:int=None ¶ )->LnhashView:"""Return lines formatted as space-padded ``lineno|hash|content`` for file at ``path`` (expands ``~``). Optional 1-based ``start``/``end`` filter the range; ``end`` past EOF is clamped.""" ¶ def file_exhash( ¶ path:str, *cmds:tuple, sw:int=4, inplace:bool=True ¶ ):"""Read files and notebook cells, apply file-aware exhash commands, and return per-target results or a combined diff. ¶ Command tuples are the ``exhash.skill`` module docstring's; ``path`` (expands ``~``, as do qualified addresses) is the ¶ default file context for unqualified addresses. Prefix source address ¶ strings, and ``m``/``t`` destination strings, with ``path:`` to target ¶ another file, or ``path.ipynb:cellid:`` to target one notebook cell's ¶ source (``cellid`` may be an exact id or unique prefix):: ¶ ("src/a.py:10|qq|,20|u7|", "m", "src/b.py:$") ¶ A range must stay within one file or cell. An ``m``/``t`` destination that ¶ omits the prefix inherits it from the *first address*, never from ``path``: ¶ a bare destination like ``$`` targets the source's own file, even when ¶ ``path`` names another. So whenever the source is qualified, qualify the ¶ destination too. Escape literal colons in filenames as ``\:`` and literal ¶ backslashes as ``\\``. Missing files are treated as empty only for commands ¶ valid against an empty buffer (``0|AA|`` with ``a``/``i``, or as an ¶ ``m``/``t`` destination); cells are never created: a cell target must ¶ already exist, or the command raises ``KeyError``. ¶ By default (``inplace=True``) write changed files only after every command ¶ succeeds and return the combined diff string (display-truncated via ¶ ``format_diff(maxlen=MAXLEN)`` and ``truncate_diff``); if any command fails, write nothing. Lines addressed by ``p`` ¶ are reported too: a ``p``-only call writes nothing and returns those lines as a bare, ¶ untruncated ``lnhashview``, and printed rows in a target that also changed ride in its ¶ diff as context. With more than one reported target, each printed-only group is headed ¶ by ``# file <path>`` or ``# cell <id>``. Pass ``inplace=False`` to preview instead: a ¶ ``FileSetEditResult`` is returned with ``files``, ``changed``, ``default_path``, ¶ ``res[path]`` (cell targets under ``'path:cellid'``), and ``res.format_diff(context=1)``."""
 ```python
 lnhashview_file('core.py')
 ```
@@ -31,7 +31,7 @@ file_exhash('core.py',
 ```python
 # One call, bottom-to-top so the delete can't shift the addresses below it; the diff shows all three changes landed.
 ```
-> (mcp__clikernel__py completed with no output)
+> (mcp__clikernel__exec completed with no output)
 ```python
 lnhashview_file('tmpl.py')
 ```
@@ -46,11 +46,11 @@ def render(name, temp):
 ```python
 # The magic's text goes in verbatim - no quoting layer to fight, even with backslashes and both quote styles in one docstring.
 ```
-> (mcp__clikernel__py completed with no output)
+> (mcp__clikernel__exec completed with no output)
 ```python
 doc(cell_exhash)
 ```
-> def cell_exhash( ¶ path:str, cell_id:str, *cmds:tuple, sw:int=4, inplace:bool=True ¶ ):"""Apply exhash commands to the source of notebook cell ``cell_id`` in ipynb file at ``path`` (expands ``~``). ¶ Command tuples are the ``exhash.skill`` module docstring's; use ¶ ``lnhashview_cell(path, cell_id)`` for addresses. ¶ ``cell_id`` may be an exact id or unique prefix. ¶ By default (``inplace=True``) write the edited source back when the source actually ¶ changed (preserving the cell's original str-or-list-of-lines form; the notebook ¶ re-serializes in Jupyter's JSON layout) and return the diff string (display-truncated via ¶ ``truncate_diff``); if any command fails, write nothing. A ``p``-only call writes nothing and ¶ returns the printed lines as a bare, untruncated ``lnhashview``. Pass ¶ ``inplace=False`` to preview instead: the EditResult is returned without touching the file."""
+> def cell_exhash( ¶ path:str, cell_id:str, *cmds:tuple, sw:int=4, inplace:bool=True ¶ ):"""Apply exhash commands to the source of notebook cell ``cell_id`` in ipynb file at ``path`` (expands ``~``). ¶ Command tuples are the ``exhash.skill`` module docstring's; use ¶ ``lnhashview_cell(path, cell_id)`` for addresses. ¶ ``cell_id`` may be an exact id or unique prefix. ¶ By default (``inplace=True``) write the edited source back when the source actually ¶ changed (preserving the cell's original str-or-list-of-lines form; the notebook ¶ re-serializes in Jupyter's JSON layout) and return the diff string (display-truncated via ¶ ``format_diff(maxlen=MAXLEN)`` and ``truncate_diff``); if any command fails, write nothing. A ``p``-only call writes nothing and ¶ returns the printed lines as a bare, untruncated ``lnhashview``. Pass ¶ ``inplace=False`` to preview instead: the EditResult is returned without touching the file."""
 ```python
 find_msgs(header_section='Retries', dlg='nbs/01_api.ipynb')
 ```
@@ -63,11 +63,11 @@ On a connection error, `fetch_daily` retries the request twice more, making 3 at
 ```python
 # The whole message is one line, so % c replaces it cleanly - no hashes needed for a full replace.
 ```
-> (mcp__clikernel__py completed with no output)
+> (mcp__clikernel__exec completed with no output)
 ```python
 import report
 ```
-> (mcp__clikernel__py completed with no output)
+> (mcp__clikernel__exec completed with no output)
 ```python
 doc(report.daily_report)
 ```

@@ -167,7 +167,7 @@ def refresh_template(
     codes = [m for m in sub.messages if m.msg_type=='code']
     calls = [_parse_call(m.content) for m in codes]
     for m,c in zip(codes, calls):
-        valid = (c and c[0] in ('mcp__clikernel__py', 'tools.mcp__clikernel__py')
+        valid = (c and c[0] in ('mcp__clikernel__exec', 'tools.mcp__clikernel__exec')
             and isinstance(c[1].get('code'), str) and c[1]['code'].strip())
         if not valid: raise ValueError(f'not a kernel call: {m.content}')
     cells = [c[1]['code'].replace(DOJO_CANON, str(_run_dir())) for c in calls]   # localize: the round plays in the real run dir
