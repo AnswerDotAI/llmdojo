@@ -2,6 +2,18 @@
 
 <!-- do not remove -->
 
+## 0.0.7
+
+### New Features
+
+- Validate templates before storing; check captured rounds before curation ([#28](https://github.com/AnswerDotAI/llmdojo/issues/28))
+- Add claudesub: spawn a headless Claude child on the current session compacted history, in its own kernel, with a claudesub CLI ([#27](https://github.com/AnswerDotAI/llmdojo/issues/27))
+
+### Bugs Squashed
+
+- switch to new rustygate exec spelling ([#29](https://github.com/AnswerDotAI/llmdojo/issues/29))
+
+
 ## 0.0.6
 
 ### New Features
