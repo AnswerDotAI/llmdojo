@@ -1,0 +1,12 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "llmdojo",
+    "section": "",
+    "text": "llmdojo is retired. Its commands have moved:\n\nclaudedojo -c and codexdojo -c are now claudecompact and codexcompact in llmsurgery. Their standing arguments moved from ~/.config/claudedojo/config.toml to ~/.config/llmsurgery/config.toml.\nclaudesub is now in aai-coding.",
+    "crumbs": [
+      "llmdojo"
+    ]
+  }
+]
