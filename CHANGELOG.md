@@ -2,9 +2,11 @@
 
 <!-- do not remove -->
 
-## 0.0.8
+## 0.0.9
 
-- py
+### New Features
+
+- retirement ([#30](https://github.com/AnswerDotAI/llmdojo/issues/30))
 
 
 ## 0.0.7
