@@ -1,7 +1,3 @@
-"""Scored tooling katas, habit rules, and pre-baked warm-start sessions for LLM coding agents
-
-Modules:
-
-- `llmdojo.tmpl`: The template layer shared by claudedojo and codexdojo"""
+"""Retired: its commands moved to llmsurgery and aai-coding"""
 
 __version__ = "0.0.9"

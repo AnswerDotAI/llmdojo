@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llmdojo"
 dynamic = ["version"]
-description = "Scored tooling katas, habit rules, and pre-baked warm-start sessions for LLM coding agents"
+description = "Retired: its commands moved to llmsurgery and aai-coding"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
@@ -15,7 +15,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
 ]
-dependencies = ['fastcore>=2.1.10', 'clikernel>=0.2.9', 'pyskills>=0.0.28', 'llmsurgery>=0.0.16', 'aidialog>=0.0.11', 'fastclaude>=0.0.1', 'exhash>=0.4.15']
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/AnswerDotAI/llmdojo"
@@ -24,22 +24,13 @@ Documentation = "https://AnswerDotAI.github.io/llmdojo/"
 [project.entry-points.nbdev]
 llmdojo = "llmdojo._modidx:d"
 
-[project.scripts]
-claudedojo = "llmdojo.claudedojo:main"
-codexdojo = "llmdojo.codexdojo:main"
-dojobuild = "llmdojo.tmpl:main"
-claudesub = "llmdojo.claudesub:main"
-
 [tool.setuptools.dynamic]
 version = {attr = "llmdojo.__version__"}
 
 [tool.setuptools.packages.find]
 include = ["llmdojo*"]
 
-[tool.setuptools.package-data]
-llmdojo = ["dojo_data/**/*"]
-
 [tool.chkstyle]
-skip_paths = ["_modidx.py", "claude/"]
+skip_paths = ["_modidx.py"]
 
 [tool.nbdev]

@@ -2,6 +2,5 @@ include pyproject.toml
 include LICENSE
 include CONTRIBUTING.md
 include README.md
-recursive-include llmdojo/dojo_data *
 global-exclude *.pyc
 global-exclude __pycache__
